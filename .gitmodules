@@ -1,3 +1,6 @@
 [submodule "mmaction2"]
 	path = mmaction2
 	url = https://github.com/rendicahya/mmaction2.git
+[submodule "assertpy"]
+	path = assertpy
+	url = https://github.com/rendicahya/assertpy.git
