@@ -1,1 +1,34 @@
-{}
+{
+  "active": {
+    "dataset": "ucf101",
+    "detector": "yolov8"
+  },
+  "ucf101": {
+    "path": "data/ucf101/videos",
+    "ext": ".avi",
+    "class_index": "data/ucf101/annotations/classInd.txt",
+    "n_videos": 13320,
+    "n_classes": 101,
+    "scene": {
+      "path": "data/ucf101/UniDet/select/intercutmix/REPP/scene",
+      "ext": ".mp4"
+    }
+  },
+  "hmdb51": {
+    "path": "data/hmdb51/videos",
+    "ext": ".avi",
+    "split": 1,
+    "n_videos": 6766,
+    "n_classes": 51,
+    "frames": "data/hmdb51/frames",
+    "scene": {
+      "path": "data/hmdb51/UniDet/0.5/intercutmix/REPP/scene",
+      "ext": ".mp4"
+    }
+  },
+  "yolov8": {
+    "checkpoint": "yolov8/checkpoints/yolov8x.pt",
+    "generate_videos": false,
+    "confidence": 0.25
+  }
+}
