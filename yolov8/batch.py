@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import click
-import numpy as np
 from config import settings as conf
 from tqdm import tqdm
 from ultralytics import YOLO
@@ -18,10 +17,11 @@ dataset = conf.active.dataset
 detector = conf.active.detector
 ext = conf[dataset].ext
 video_in_dir = root / conf[dataset].path
-generate_video = conf.yolov8.generate_videos
-confidence = conf.yolov8.confidence
-checkpoint = conf.yolov8.checkpoint
+generate_video = conf[detector].generate_videos
+confidence = conf[detector].confidence
+checkpoint = conf[detector].checkpoint
 json_out_dir = root / f"data/{dataset}/{detector}/detect/{confidence}/json"
+human_class = conf[detector].human_class
 
 print("Dataset:", dataset)
 print("Dataset path:", video_in_dir.relative_to(root))
@@ -49,16 +49,17 @@ for file in video_in_dir.glob(f"**/*{ext}"):
     results = model(file, stream=True, conf=confidence, device="cuda:0", verbose=False)
 
     for i, result in enumerate(results):
+        bar.set_description(str(i))
         detection_data.update(
             {
                 i: [
                     (
-                        box.xywh.cpu().numpy().astype(int).tolist(),
-                        round(box.conf.cpu().numpy().astype(float)[0], 2),
+                        box.xywh.cpu().numpy().astype(int).tolist()[0],
+                        round(box.conf.cpu().numpy().astype(float)[0], 3),
                         int(box.cls.cpu().numpy()[0]),
                     )
                     for box in result.boxes
-                    if box.cls == 0
+                    if box.cls in human_class
                 ]
             }
         )
@@ -69,5 +70,6 @@ for file in video_in_dir.glob(f"**/*{ext}"):
         json.dump(detection_data, json_file)
 
     bar.update(1)
+    break
 
 bar.close()
