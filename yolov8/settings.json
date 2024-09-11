@@ -1,7 +1,7 @@
 {
   "active": {
     "dataset": "ucf101",
-    "detector": "yolov8"
+    "detector": "yolov8-coco"
   },
   "ucf101": {
     "path": "data/ucf101/videos",
@@ -26,9 +26,25 @@
       "ext": ".mp4"
     }
   },
-  "yolov8": {
-    "checkpoint": "yolov8/checkpoints/yolov8x.pt",
-    "generate_videos": false,
-    "confidence": 0.25
+  "detect": {
+    "generate_videos": true,
+    "yolov8-coco": {
+      "checkpoint": "checkpoints/yolov8x.pt",
+      "confidence": 0.25,
+      "human_class": [0]
+    },
+    "yolov8-iov7": {
+      "checkpoint": "checkpoints/yolov8x-iov7.pt",
+      "confidence": 0.25
+    },
+    "yolov10-coco": {
+      "checkpoint": "checkpoints/yolov10x.pt",
+      "confidence": 0.25,
+      "human_class": [0]
+    }
+  },
+  "cutmix": {
+    "smooth_edge": true,
+    "scene_mode": "black"
   }
 }
