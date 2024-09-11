@@ -6,7 +6,6 @@ import pickle
 from pathlib import Path
 
 import click
-import cv2
 import mmcv
 import numpy as np
 from config import settings as conf
@@ -19,8 +18,8 @@ from assertpy.assertpy import assert_that
 root = Path.cwd()
 dataset = conf.active.dataset
 detector = conf.active.detector
-ext = conf[dataset].ext
-video_in_dir = root / conf[dataset].path
+ext = conf.datasets[dataset].ext
+video_in_dir = root / conf.datasets[dataset].path
 generate_video = conf.detect.generate_videos
 det_confidence = conf.detect[detector].confidence
 checkpoint = conf.detect[detector].checkpoint
@@ -30,9 +29,9 @@ video_out_dir = root / f"data/{dataset}/{detector}/detect/{det_confidence}/video
 human_class = conf.detect[detector].human_class
 
 print("Input:", video_in_dir.relative_to(root))
+print("Checkpoint:", checkpoint)
 print("Output mask:", mask_out_dir.relative_to(root))
 print("Output dump:", dump_out_dir.relative_to(root))
-print("Checkpoint:", checkpoint)
 
 if generate_video:
     print("Output video:", video_out_dir.relative_to(root))
@@ -44,7 +43,7 @@ if not click.confirm("\nDo you want to continue?", show_default=True):
     exit("Aborted.")
 
 model = YOLO(checkpoint)
-bar = tqdm(total=conf[dataset].n_videos)
+bar = tqdm(total=conf.datasets[dataset].n_videos, dynamic_ncols=True)
 
 for file in video_in_dir.glob(f"**/*{ext}"):
     action = file.parent.name
