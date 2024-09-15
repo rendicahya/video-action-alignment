@@ -28,8 +28,8 @@ dump_out_dir = root / f"data/{dataset}/{detector}/detect/{det_confidence}/dump"
 video_out_dir = root / f"data/{dataset}/{detector}/detect/{det_confidence}/video"
 human_class = conf.detect[detector].human_class
 
-print("Input:", video_in_dir.relative_to(root))
 print("Checkpoint:", checkpoint)
+print("Input:", video_in_dir.relative_to(root))
 print("Output mask:", mask_out_dir.relative_to(root))
 print("Output dump:", dump_out_dir.relative_to(root))
 
