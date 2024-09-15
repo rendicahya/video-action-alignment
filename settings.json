@@ -1,6 +1,6 @@
 {
   "active": {
-    "dataset": "hmdb51",
+    "dataset": "kinetics100",
     "detector": "yolov8-coco"
   },
   "datasets": {
@@ -9,11 +9,7 @@
       "ext": ".avi",
       "class_index": "data/ucf101/annotations/classInd.txt",
       "n_videos": 13320,
-      "n_classes": 101,
-      "scene": {
-        "path": "data/ucf101/UniDet/select/intercutmix/REPP/scene",
-        "ext": ".mp4"
-      }
+      "n_classes": 101
     },
     "hmdb51": {
       "path": "data/hmdb51/videos",
@@ -21,11 +17,14 @@
       "split": 1,
       "n_videos": 6766,
       "n_classes": 51,
-      "frames": "data/hmdb51/frames",
-      "scene": {
-        "path": "data/hmdb51/UniDet/0.5/intercutmix/REPP/scene",
-        "ext": ".mp4"
-      }
+      "frames": "data/hmdb51/frames"
+    },
+    "kinetics100": {
+      "path": "data/kinetics100/videos",
+      "ext": ".mp4",
+      "split": 1,
+      "n_videos": 9999,
+      "n_classes": 100
     }
   },
   "detect": {
