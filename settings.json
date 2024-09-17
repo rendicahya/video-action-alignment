@@ -1,6 +1,8 @@
 {
   "active": {
-    "dataset": "kinetics100",
+    "dataset": "ucf101",
+    "random_seed": 0,
+    "use_REPP": true,
     "detector": "yolov8-coco"
   },
   "datasets": {
@@ -45,7 +47,12 @@
     }
   },
   "cutmix": {
-    "smooth_edge": true,
-    "scene_mode": "black"
+    "smooth_edge": false,
+    "multiplication": 10,
+    "scene_mode": "black",
+    "output": {
+      "ext": ".mp4",
+      "writer": "moviepy"
+    }
   }
 }
