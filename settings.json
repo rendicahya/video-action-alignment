@@ -49,7 +49,7 @@
   "cutmix": {
     "smooth_edge": false,
     "multiplication": 10,
-    "scene_mode": "black",
+    "scene_replace": "black",
     "output": {
       "ext": ".mp4",
       "writer": "moviepy"
