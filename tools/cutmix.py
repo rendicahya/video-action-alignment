@@ -7,7 +7,6 @@ import numpy as np
 
 sys.path.append(".")
 
-import json
 import random
 from collections import defaultdict
 from pathlib import Path
@@ -72,7 +71,6 @@ def main():
     smooth_edge = conf.cutmix.smooth_edge
     scene_replace = conf.cutmix.scene_replace
     use_REPP = conf.active.use_REPP
-    video_in_dir = root / conf.datasets[dataset].path
     multiplication = conf.cutmix.multiplication
     video_ext = conf.datasets[dataset].ext
     n_videos = conf.datasets[dataset].n_videos
@@ -85,7 +83,6 @@ def main():
         root / "data" / dataset / detector / str(det_confidence) / "mix" / scene_replace
     )
     out_ext = conf.cutmix.output.ext
-    video_list = video_in_dir / "list.txt"
     scene_dict = defaultdict(list)
 
     print("Σ videos:", n_videos)
@@ -113,7 +110,6 @@ def main():
 
     for file in video_in_dir.glob(f"**/*{video_ext}"):
         action = file.parent.name
-        output_action_dir = video_out_dir / action
         video_mask_path = mask_dir / action / file.with_suffix(".npz").name
 
         if not video_mask_path.is_file() or not video_mask_path.exists():
@@ -125,21 +121,9 @@ def main():
 
         for i in range(multiplication):
             scene_action_pick = random.choice(scene_action_options)
-            scene_options = scene_dict[scene_action_pick]
-            scene_pick = random.choice(scene_options)
-            scene_pick_base = os.path.splitext(scene_pick)[0]
-            scene_path = video_in_dir / scene_action_pick / scene_pick
             video_out_path = (
                 video_out_dir / action / f"{file.stem}-{scene_action_pick}"
             ).with_suffix(out_ext)
-
-            if scene_replace == "noop":
-                scene_mask = None
-            else:
-                scene_mask_path = (
-                    mask_dir / scene_action_pick / f"{scene_pick_base}.npz"
-                )
-                scene_mask = np.load(scene_mask_path)["arr_0"]
 
             scene_action_options.remove(scene_action_pick)
 
@@ -150,13 +134,25 @@ def main():
                 bar.update(1)
                 continue
 
-            video_out_path.parent.mkdir(parents=True, exist_ok=True)
+            scene_options = scene_dict[scene_action_pick]
+            scene_pick = random.choice(scene_options)
 
+            if scene_replace == "noop":
+                scene_mask = None
+            else:
+                scene_pick_base = os.path.splitext(scene_pick)[0]
+                scene_mask_path = (
+                    mask_dir / scene_action_pick / f"{scene_pick_base}.npz"
+                )
+                scene_mask = np.load(scene_mask_path)["arr_0"]
+
+            scene_path = video_in_dir / scene_action_pick / scene_pick
             out_frames = cutmix_fn(
                 file, scene_path, mask_bundle, scene_replace, scene_mask
             )
 
             if out_frames:
+                video_out_path.parent.mkdir(parents=True, exist_ok=True)
                 frames_to_video(
                     out_frames,
                     video_out_path,
