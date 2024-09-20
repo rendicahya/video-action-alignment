@@ -45,8 +45,12 @@ def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask):
         if scene_frame.shape[:2] != (h, w):
             scene_frame = cv2.resize(scene_frame, (w, h))
 
-        if scene_replace == "black":
+        if scene_replace in ("white", "black"):
             is_foreground = scene_mask[f % scene_n_frames] == 255
+
+        if scene_replace == "white":
+            scene_frame[is_foreground] = 255
+        elif scene_replace == "black":
             scene_frame[is_foreground] = 0
 
         actor_mask = mask_bundle[f]
@@ -94,6 +98,7 @@ def main():
 
     assert_that(video_in_dir).is_directory().is_readable()
     assert_that(mask_dir).is_directory().is_readable()
+    assert_that(scene_replace).is_in("white", "black", "inpaint")
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
