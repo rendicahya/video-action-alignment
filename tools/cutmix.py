@@ -19,7 +19,7 @@ from config import settings as conf
 from python_video import frames_to_video
 
 
-def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask):
+def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask, filename):
     if not actor_path.is_file() or not actor_path.exists():
         print("Not a file or not exists:", actor_path)
         return None
@@ -51,7 +51,10 @@ def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask):
         if scene_replace == "white":
             scene_frame[is_foreground] = 255
         elif scene_replace == "black":
-            scene_frame[is_foreground] = 0
+            try:
+                scene_frame[is_foreground] = 0
+            except:
+                print(filename)
 
         actor_mask = mask_bundle[f]
 
@@ -80,6 +83,7 @@ def main():
     n_videos = conf.datasets[dataset].n_videos
     random_seed = conf.active.random_seed
     video_in_dir = root / "data" / dataset / "videos"
+    video_writer = conf.cutmix.output.writer
     mask_dir = (
         root / "data" / dataset / detector / str(det_confidence) / "detect" / "mask"
     )
@@ -95,6 +99,7 @@ def main():
     print("Input:", video_in_dir.relative_to(root))
     print("Mask:", mask_dir.relative_to(root))
     print("Output:", video_out_dir.relative_to(root))
+    print("Video writer:", video_writer)
 
     assert_that(video_in_dir).is_directory().is_readable()
     assert_that(mask_dir).is_directory().is_readable()
@@ -153,7 +158,7 @@ def main():
 
             scene_path = video_in_dir / scene_action_pick / scene_pick
             out_frames = cutmix_fn(
-                file, scene_path, mask_bundle, scene_replace, scene_mask
+                file, scene_path, mask_bundle, scene_replace, scene_mask, file.name
             )
 
             if out_frames:
@@ -161,7 +166,7 @@ def main():
                 frames_to_video(
                     out_frames,
                     video_out_path,
-                    writer=conf.cutmix.output.writer,
+                    writer=video_writer,
                     fps=fps,
                 )
 
