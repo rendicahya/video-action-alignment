@@ -19,7 +19,7 @@ from config import settings as conf
 from python_video import frames_to_video
 
 
-def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask, filename):
+def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask):
     if not actor_path.is_file() or not actor_path.exists():
         print("Not a file or not exists:", actor_path)
         return None
@@ -32,6 +32,11 @@ def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask, fi
     w, h = actor_reader.resolution
     scene_frame = None
     blank = np.zeros((h, w), np.uint8)
+
+    if scene_mask.shape[:2] != (h, w) and scene_replace in ("white", "black"):
+        scene_mask = np.moveaxis(scene_mask, 0, -1)
+        scene_mask = cv2.resize(scene_mask, dsize=(w, h))
+        scene_mask = np.moveaxis(scene_mask, -1, 0)
 
     for f, actor_frame in enumerate(actor_reader):
         if f == len(mask_bundle) - 1:
@@ -51,10 +56,7 @@ def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask, fi
         if scene_replace == "white":
             scene_frame[is_foreground] = 255
         elif scene_replace == "black":
-            try:
-                scene_frame[is_foreground] = 0
-            except:
-                print(filename)
+            scene_frame[is_foreground] = 0
 
         actor_mask = mask_bundle[f]
 
@@ -128,8 +130,9 @@ def main():
         mask_bundle = np.load(video_mask_path)["arr_0"]
         fps = mmcv.VideoReader(str(file)).fps
         scene_action_options = [s for s in scene_dict.keys() if s != action]
+        i = 0
 
-        for i in range(multiplication):
+        while i < multiplication:
             scene_action_pick = random.choice(scene_action_options)
             video_out_path = (
                 video_out_dir / action / f"{file.stem}-{scene_action_pick}"
@@ -156,9 +159,12 @@ def main():
                 )
                 scene_mask = np.load(scene_mask_path)["arr_0"]
 
+                if len(scene_mask) > 500:
+                    continue
+
             scene_path = video_in_dir / scene_action_pick / scene_pick
             out_frames = cutmix_fn(
-                file, scene_path, mask_bundle, scene_replace, scene_mask, file.name
+                file, scene_path, mask_bundle, scene_replace, scene_mask
             )
 
             if out_frames:
@@ -171,6 +177,7 @@ def main():
                 )
 
                 n_written += 1
+                i += 1
             else:
                 print("out_frames None: ", file.name)
 
