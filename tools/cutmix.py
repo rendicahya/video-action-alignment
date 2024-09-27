@@ -19,7 +19,7 @@ from config import settings as conf
 from python_video import frames_to_video
 
 
-def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask):
+def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_op, scene_mask):
     if not actor_path.is_file() or not actor_path.exists():
         print("Not a file or not exists:", actor_path)
         return None
@@ -63,6 +63,9 @@ def cutmix_fn(actor_path, scene_path, mask_bundle, scene_replace, scene_mask):
         if actor_mask is None:
             actor_mask = blank
 
+        if scene_op == "hflip":
+            scene_frame = cv2.flip(scene_frame, 1)
+
         actor = cv2.bitwise_and(actor_frame, actor_frame, mask=actor_mask)
         scene = cv2.bitwise_and(scene_frame, scene_frame, mask=255 - actor_mask)
 
@@ -78,7 +81,8 @@ def main():
     detector = conf.active.detector
     det_confidence = conf.detect[detector].confidence
     smooth_edge = conf.cutmix.smooth_edge
-    scene_replace = conf.cutmix.scene_replace
+    scene_replace = conf.cutmix.scene.replace
+    scene_op = conf.cutmix.scene.op
     use_REPP = conf.active.use_REPP
     multiplication = conf.cutmix.multiplication
     video_ext = conf.datasets[dataset].ext
@@ -90,7 +94,14 @@ def main():
         root / "data" / dataset / detector / str(det_confidence) / "detect" / "mask"
     )
     video_out_dir = (
-        root / "data" / dataset / detector / str(det_confidence) / "mix" / scene_replace
+        root
+        / "data"
+        / dataset
+        / detector
+        / str(det_confidence)
+        / "mix"
+        / scene_op
+        / scene_replace
     )
     out_ext = conf.cutmix.output.ext
     scene_dict = defaultdict(list)
@@ -102,10 +113,12 @@ def main():
     print("Mask:", mask_dir.relative_to(root))
     print("Output:", video_out_dir.relative_to(root))
     print("Video writer:", video_writer)
+    print(f"Scene: {scene_replace} & {scene_op}")
 
     assert_that(video_in_dir).is_directory().is_readable()
     assert_that(mask_dir).is_directory().is_readable()
     assert_that(scene_replace).is_in("white", "black", "inpaint")
+    assert_that(scene_op).is_in("noop", "hflip")
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
@@ -164,7 +177,7 @@ def main():
 
             scene_path = video_in_dir / scene_action_pick / scene_pick
             out_frames = cutmix_fn(
-                file, scene_path, mask_bundle, scene_replace, scene_mask
+                file, scene_path, mask_bundle, scene_replace, scene_op, scene_mask
             )
 
             if out_frames:
