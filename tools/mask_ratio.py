@@ -22,7 +22,7 @@ json_out_path = mask_dir / "ratio.json"
 
 print("Input:", mask_dir)
 print("Output:", json_out_path)
-print("Σ videos:", n_files)
+print("n videos:", n_files)
 
 if not click.confirm("\nDo you want to continue?", show_default=True):
     exit("Aborted.")
@@ -32,10 +32,10 @@ assert_that(mask_dir).is_directory().is_readable()
 data = {}
 bar = tqdm(total=n_files, dynamic_ncols=True)
 
-for mask_path in mask_dir.glob("**/*.npz"):
-    mask_bundle = np.load(mask_path)["arr_0"]
-    mask_ratio = np.count_nonzero(mask_bundle) / mask_bundle.size
-    data[mask_path.stem] = mask_ratio
+for path in mask_dir.glob("**/*.npz"):
+    mask = np.load(path)["arr_0"]
+    ratio = np.count_nonzero(mask) / mask.size
+    data[path.stem] = ratio
 
     bar.update(1)
 
