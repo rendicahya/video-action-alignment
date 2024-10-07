@@ -108,7 +108,8 @@ def main():
         / scene_transform
     )
     out_ext = conf.cutmix.output.ext
-    scene_dict = defaultdict(list)
+    action2scene_dict = defaultdict(list)
+    scene2action_dict = {}
 
     print("Σ videos:", n_videos)
     print("Multiplication:", multiplication)
@@ -131,12 +132,16 @@ def main():
 
     random.seed(random_seed)
 
-    if scene_selection_method == "random":
-        with open(video_in_dir / "list.txt") as f:
-            for line in f:
-                action, filename = line.split()[0].split("/")
-                scene_dict[action].append(filename)
-    elif scene_selection_method == "area":
+    with open(video_in_dir / "list.txt") as f:
+        for line in f:
+            action, filename = line.split()[0].split("/")
+
+            if scene_selection_method == "random":
+                action2scene_dict[action].append(filename)
+            elif scene_selection_method == "area":
+                scene2action_dict[filename] = action
+
+    if scene_selection_method == "area":
         with open(mask_dir / "ratio.json") as f:
             ratio_json = json.load(f)
 
@@ -155,14 +160,14 @@ def main():
         i = 0
 
         if scene_selection_method == "random":
-            scene_class_options = [s for s in scene_dict.keys() if s != action]
+            scene_class_options = [s for s in action2scene_dict.keys() if s != action]
         if scene_selection_method == "area":
             action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
 
         while i < multiplication:
             if scene_selection_method == "random":
                 scene_class = random.choice(scene_class_options)
-                scene_options = scene_dict[scene_class]
+                scene_options = action2scene_dict[scene_class]
                 scene_pick = random.choice(scene_options)
 
                 scene_class_options.remove(scene_class)
@@ -180,7 +185,7 @@ def main():
                     continue
 
                 scene_pick = random.choice(scene_options) + video_ext
-                scene_class = scene_pick.split("_")[1]
+                scene_class = scene2action_dict[scene_pick]
 
             video_out_path = (
                 video_out_dir / action / f"{file.stem}-{scene_class}"
