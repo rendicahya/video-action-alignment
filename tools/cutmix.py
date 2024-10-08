@@ -1,18 +1,16 @@
-import os
 import sys
-
-import cv2
-import mmcv
-import numpy as np
 
 sys.path.append(".")
 import json
-
+import os
 import random
 from collections import defaultdict
 from pathlib import Path
 
 import click
+import cv2
+import mmcv
+import numpy as np
 from tqdm import tqdm
 
 from assertpy.assertpy import assert_that
@@ -190,7 +188,7 @@ def main():
                 scene_class = scene2action_dict[scene]
 
             video_out_path = (
-                video_out_dir / action / f"{file.stem}-{scene_class}"
+                video_out_dir / action / f"{file.stem}-{i}-{scene_class}"
             ).with_suffix(out_ext)
 
             if (
