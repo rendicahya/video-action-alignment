@@ -125,7 +125,7 @@ def main():
     assert_that(mask_dir).is_directory().is_readable()
     assert_that(scene_selection_method).is_in("random", "area", "iou")
     assert_that(scene_replace).is_in("noop", "white", "black", "inpaint")
-    assert_that(scene_transform).is_in("noop", "hflip")
+    assert_that(scene_transform).is_in("notransform", "hflip")
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
@@ -135,11 +135,12 @@ def main():
     with open(video_in_dir / "list.txt") as f:
         for line in f:
             action, filename = line.split()[0].split("/")
+            stem = os.path.splitext(filename)[0]
 
             if scene_selection_method == "random":
-                action2scene_dict[action].append(filename)
+                action2scene_dict[action].append(stem)
             elif scene_selection_method == "area":
-                scene2action_dict[filename] = action
+                scene2action_dict[stem] = action
 
     if scene_selection_method == "area":
         with open(mask_dir / "ratio.json") as f:
@@ -155,20 +156,21 @@ def main():
         if not video_mask_path.is_file() or not video_mask_path.exists():
             continue
 
-        action_mask = np.load(video_mask_path)["arr_0"]
-        fps = mmcv.VideoReader(str(file)).fps
-        i = 0
-
         if scene_selection_method == "random":
             scene_class_options = [s for s in action2scene_dict.keys() if s != action]
         if scene_selection_method == "area":
+            action_mask = np.load(video_mask_path)["arr_0"]
             action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
 
+        i = 0
+
         while i < multiplication:
+            bar.set_description(f"{file.stem} ({i+1}/{multiplication})")
+
             if scene_selection_method == "random":
                 scene_class = random.choice(scene_class_options)
                 scene_options = action2scene_dict[scene_class]
-                scene_pick = random.choice(scene_options)
+                scene = random.choice(scene_options)
 
                 scene_class_options.remove(scene_class)
             elif scene_selection_method == "area":
@@ -178,14 +180,14 @@ def main():
                     filename
                     for filename, ratio in ratio_json.items()
                     if mask_ratio_lower < ratio < mask_ratio_upper
-                    and filename.split("_")[1] != action
+                    and scene2action_dict[filename] != action
                 ]
 
                 if len(scene_options) <= 1:
-                    continue
+                    break
 
-                scene_pick = random.choice(scene_options) + video_ext
-                scene_class = scene2action_dict[scene_pick]
+                scene = random.choice(scene_options)
+                scene_class = scene2action_dict[scene]
 
             video_out_path = (
                 video_out_dir / action / f"{file.stem}-{scene_class}"
@@ -201,14 +203,13 @@ def main():
             if scene_replace == "noop":
                 scene_mask = None
             else:
-                scene_pick_base = os.path.splitext(scene_pick)[0]
-                scene_mask_path = mask_dir / scene_class / f"{scene_pick_base}.npz"
+                scene_mask_path = (mask_dir / scene_class / scene).with_suffix(".npz")
                 scene_mask = np.load(scene_mask_path)["arr_0"]
 
                 if len(scene_mask) > 500:
                     continue
 
-            scene_path = video_in_dir / scene_class / scene_pick
+            scene_path = (video_in_dir / scene_class / scene).with_suffix(video_ext)
             out_frames = cutmix_fn(
                 file,
                 scene_path,
@@ -219,6 +220,8 @@ def main():
             )
 
             if out_frames:
+                fps = mmcv.VideoReader(str(file)).fps
+
                 video_out_path.parent.mkdir(parents=True, exist_ok=True)
                 frames_to_video(
                     out_frames,
