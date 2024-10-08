@@ -108,7 +108,7 @@ def main():
         / scene_transform
     )
     out_ext = conf.cutmix.output.ext
-    action2scene_dict = defaultdict(list)
+    action2scenes_dict = defaultdict(list)
     scene2action_dict = {}
 
     print("Σ videos:", n_videos)
@@ -138,7 +138,7 @@ def main():
             stem = os.path.splitext(filename)[0]
 
             if scene_selection_method == "random":
-                action2scene_dict[action].append(stem)
+                action2scenes_dict[action].append(stem)
             elif scene_selection_method == "area":
                 scene2action_dict[stem] = action
 
@@ -157,7 +157,7 @@ def main():
             continue
 
         if scene_selection_method == "random":
-            scene_class_options = [s for s in action2scene_dict.keys() if s != action]
+            scene_class_options = [s for s in action2scenes_dict.keys() if s != action]
         if scene_selection_method == "area":
             action_mask = np.load(video_mask_path)["arr_0"]
             action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
@@ -169,7 +169,7 @@ def main():
 
             if scene_selection_method == "random":
                 scene_class = random.choice(scene_class_options)
-                scene_options = action2scene_dict[scene_class]
+                scene_options = action2scenes_dict[scene_class]
                 scene = random.choice(scene_options)
 
                 scene_class_options.remove(scene_class)
