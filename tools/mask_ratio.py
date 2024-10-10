@@ -19,6 +19,7 @@ det_confidence = conf.detect[detector].confidence
 n_files = conf.datasets[dataset].n_videos
 mask_dir = root / "data" / dataset / detector / str(det_confidence) / "detect" / "mask"
 json_out_path = mask_dir / "ratio.json"
+data = {}
 
 print("Input:", mask_dir)
 print("Output:", json_out_path)
@@ -29,17 +30,10 @@ if not click.confirm("\nDo you want to continue?", show_default=True):
 
 assert_that(mask_dir).is_directory().is_readable()
 
-data = {}
-bar = tqdm(total=n_files, dynamic_ncols=True)
-
-for path in mask_dir.glob("**/*.npz"):
+for path in tqdm(mask_dir.glob("**/*.npz"), dynamic_ncols=True):
     mask = np.load(path)["arr_0"]
     ratio = np.count_nonzero(mask) / mask.size
     data[path.stem] = round(ratio, 4)
-
-    bar.update(1)
-
-bar.close()
 
 with open(json_out_path, "w") as f:
     json.dump(data, f)
