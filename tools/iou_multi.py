@@ -68,12 +68,13 @@ with open(DATASET_DIR / "list.txt") as f:
         file2class_map[stem] = action
 
 IOU_PATH = MASK_DIR / "iou.npz"
-data = (
-    np.load(IOU_PATH)["arr_0"]
-    if IOU_PATH.exists()
-    else np.zeros((N_FILES, N_FILES), np.float16)
-)
-NEXT_IDX = np.where(np.all(data == 0, axis=1))[0][0]
+
+if IOU_PATH.exists():
+    data = np.load(IOU_PATH)["arr_0"]
+    NEXT_IDX = np.where(np.all(data == 0, axis=1))[0][0]
+else:
+    np.zeros((N_FILES, N_FILES), np.float16)
+    NEXT_IDX = 0
 
 print(f"Working on {MAX_WORKERS} max workers...")
 
