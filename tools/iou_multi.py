@@ -2,13 +2,12 @@ import sys
 
 sys.path.append(".")
 
-import concurrent.futures
+from concurrent.jobs import ThreadPoolExecutor
 from pathlib import Path
 
 import click
 import cv2
 import numpy as np
-import torch.multiprocessing as mp
 from tqdm import tqdm
 
 from assertpy.assertpy import assert_that
@@ -42,11 +41,10 @@ def compute_iou(file1, file2):
 ROOT = Path.cwd()
 DATASET = conf.active.dataset
 N_FILES = conf.datasets[DATASET].n_videos
-N_FILES = 100
 DETECTOR = conf.active.detector
 DET_CONFIDENCE = conf.detect[DETECTOR].confidence
 MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
-N_CORES = mp.cpu_count()
+data = np.zeros((N_FILES, N_FILES), np.float16)
 file_list = []
 file2class_map = {}
 
@@ -67,26 +65,22 @@ for file in MASK_DIR.glob("**/*.npz"):
     file_list.append(file.stem)
     file2class_map[file.stem] = file.parent
 
-file_list = file_list[:N_FILES]
-data = np.zeros((N_FILES, N_FILES), np.float16)
-
-with concurrent.futures.ThreadPoolExecutor(max_workers=N_CORES) as executor:
-    futures = {}
+with ThreadPoolExecutor() as executor:
+    jobs = {}
 
     print("Preparing thread jobs...")
 
     for i, file1 in tqdm(enumerate(file_list), total=len(file_list)):
-        file2_list = file_list[i + 1 : N_FILES]
+        file2_list = file_list[i + 1 :]
 
         for file2 in file2_list:
-            futures[(file1, file2)] = executor.submit(compute_iou, file1, file2)
+            jobs[(file1, file2)] = executor.submit(compute_iou, file1, file2)
 
-    print(f"Executing on {N_CORES} threads...")
+    print(f"Executing jobs...")
 
-    for (file1, file2), future in tqdm(futures.items(), total=len(futures)):
+    for (file1, file2), job in tqdm(jobs.items(), total=len(jobs), dynamic_ncols=True):
         i = file_list.index(file1)
         j = file_list.index(file2)
-        data[i, j] = future.result()
+        data[i, j] = job.result()
 
 np.savez_compressed(MASK_DIR / "iou.npz", data)
-np.save(MASK_DIR / "iou.npy", data)
