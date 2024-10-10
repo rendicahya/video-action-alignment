@@ -17,11 +17,8 @@ from config import settings as conf
 
 
 def compute_iou(file1, file2):
-    path1 = (MASK_DIR / file2class_map[file1] / file1).with_suffix(".npz")
-    path2 = (MASK_DIR / file2class_map[file2] / file2).with_suffix(".npz")
-
-    mask1 = np.load(path1)["arr_0"]
-    mask2 = np.load(path2)["arr_0"]
+    mask1 = MASK_BANK[file1]
+    mask2 = MASK_BANK[file2]
 
     mask2_len = len(mask2)
     iou_list = []
@@ -47,7 +44,9 @@ N_FILES = conf.datasets[DATASET].n_videos
 DETECTOR = conf.active.detector
 DET_CONFIDENCE = conf.detect[DETECTOR].confidence
 MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
+IOU_PATH = MASK_DIR / "iou.npz"
 MAX_WORKERS = conf.active.max_workers
+MASK_BANK = {}
 file_list = []
 file2class_map = {}
 
@@ -59,15 +58,18 @@ assert_that(MASK_DIR).is_directory().is_readable()
 if not click.confirm("\nDo you want to continue?", show_default=True):
     exit("Aborted.")
 
+print("Loading masks...")
+
 with open(DATASET_DIR / "list.txt") as f:
-    for line in f:
+    for line in tqdm(f, total=N_FILES, dynamic_ncols=True):
         action, filename = line.split()[0].split("/")
         stem = splitext(filename)[0]
 
         file_list.append(stem)
         file2class_map[stem] = action
 
-IOU_PATH = MASK_DIR / "iou.npz"
+        mask_path = (MASK_DIR / action / filename).with_suffix(".npz")
+        MASK_BANK[stem] = np.load(mask_path)["arr_0"]
 
 if IOU_PATH.exists():
     data = np.load(IOU_PATH)["arr_0"]
