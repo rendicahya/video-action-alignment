@@ -1,9 +1,9 @@
 {
   "active": {
-    "dataset": "ucf101",
+    "dataset": "kinetics100",
     "random_seed": 0,
-    "use_REPP": true,
-    "detector": "yolov8-coco"
+    "detector": "yolov8-coco",
+    "max_workers": 8
   },
   "datasets": {
     "ucf101": {
@@ -46,10 +46,21 @@
       "human_class": [0]
     }
   },
+  "iou": {
+    "resize": {
+      "ucf101": 0.75,
+      "hmdb51": 1.0,
+      "kinetics100": 0.6
+    }
+  },
   "cutmix": {
     "smooth_edge": false,
     "multiplication": 10,
-    "scene_replace": "black",
+    "scene": {
+      "replace": "black",
+      "transform": "notransform",
+      "selection": { "method": "area", "tolerance": 0.1 }
+    },
     "output": {
       "ext": ".mp4",
       "writer": "moviepy"

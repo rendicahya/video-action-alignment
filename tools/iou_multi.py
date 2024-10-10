@@ -2,7 +2,6 @@ import sys
 
 sys.path.append(".")
 
-import pickle
 from concurrent.futures import ThreadPoolExecutor
 from os.path import splitext
 from pathlib import Path
@@ -47,6 +46,7 @@ MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" /
 IOU_PATH = MASK_DIR / "iou.npz"
 MAX_WORKERS = conf.active.max_workers
 MASK_BANK = {}
+RESIZE_FACTOR = conf.iou.resize[DATASET]
 file_list = []
 file2class_map = {}
 
@@ -69,7 +69,16 @@ with open(DATASET_DIR / "list.txt") as f:
         file2class_map[stem] = action
 
         mask_path = (MASK_DIR / action / filename).with_suffix(".npz")
-        MASK_BANK[stem] = np.load(mask_path)["arr_0"]
+        mask = np.load(mask_path)["arr_0"]
+
+        if RESIZE_FACTOR < 1:
+            height, width = mask.shape[1:]
+            new_width = int(width * RESIZE_FACTOR)
+            new_height = int(height * RESIZE_FACTOR)
+
+            mask = cv2.resize(mask, (new_width, new_height))
+
+        MASK_BANK[stem] = mask
 
 if IOU_PATH.exists():
     data = np.load(IOU_PATH)["arr_0"]
@@ -97,4 +106,8 @@ for file1_idx, file1 in enumerate(file_list):
         for (i, j), job in tqdm(jobs.items(), total=len(jobs), dynamic_ncols=True):
             data[i, j] = job.result()
 
-    np.savez_compressed(IOU_PATH, data)
+    if file1_idx % 10 == 0:
+        print("Saving checkpoint...")
+        np.savez_compressed(IOU_PATH, data)
+
+np.savez_compressed(IOU_PATH, data)
