@@ -75,7 +75,7 @@ if IOU_PATH.exists():
     data = np.load(IOU_PATH)["arr_0"]
     START_IDX = np.where(np.all(data == 0, axis=1))[0][0]
 else:
-    np.zeros((N_FILES, N_FILES), np.float16)
+    data = np.zeros((N_FILES, N_FILES), np.float16)
     START_IDX = 0
 
 print(f"Working on {MAX_WORKERS} max workers...")
