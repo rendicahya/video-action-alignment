@@ -71,12 +71,12 @@ IOU_PATH = MASK_DIR / "iou.npz"
 data = (
     np.load(IOU_PATH) if IOU_PATH.exists() else np.zeros((N_FILES, N_FILES), np.float16)
 )["arr_0"]
-next_idx = np.where(np.all(data == 0, axis=1))[0][0]
+NEXT_IDX = np.where(np.all(data == 0, axis=1))[0][0]
 
 print(f"Working on {MAX_WORKERS} max workers...")
 
 for file1_idx, file1 in enumerate(file_list):
-    if file1_idx < next_idx:
+    if file1_idx < NEXT_IDX:
         continue
 
     file2_list = file_list[file1_idx + 1 :]
