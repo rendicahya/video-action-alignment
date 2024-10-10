@@ -2,7 +2,9 @@ import sys
 
 sys.path.append(".")
 
-from concurrent.jobs import ThreadPoolExecutor
+import pickle
+from concurrent.futures import ThreadPoolExecutor
+from os.path import splitext
 from pathlib import Path
 
 import click
@@ -40,11 +42,12 @@ def compute_iou(file1, file2):
 
 ROOT = Path.cwd()
 DATASET = conf.active.dataset
+DATASET_DIR = ROOT / conf.datasets[DATASET].path
 N_FILES = conf.datasets[DATASET].n_videos
 DETECTOR = conf.active.detector
 DET_CONFIDENCE = conf.detect[DETECTOR].confidence
 MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
-data = np.zeros((N_FILES, N_FILES), np.float16)
+MAX_WORKERS = conf.active.max_workers
 file_list = []
 file2class_map = {}
 
@@ -56,31 +59,37 @@ assert_that(MASK_DIR).is_directory().is_readable()
 if not click.confirm("\nDo you want to continue?", show_default=True):
     exit("Aborted.")
 
-print("Building file list...")
+with open(DATASET_DIR / "list.txt") as f:
+    for line in f:
+        action, filename = line.split()[0].split("/")
+        stem = splitext(filename)[0]
 
-for file in MASK_DIR.glob("**/*.npz"):
-    if file.stem == "iou":
+        file_list.append(stem)
+        file2class_map[stem] = action
+
+IOU_PATH = MASK_DIR / "iou.npz"
+data = (
+    np.load(IOU_PATH) if IOU_PATH.exists() else np.zeros((N_FILES, N_FILES), np.float16)
+)["arr_0"]
+next_idx = np.where(np.all(data == 0, axis=1))[0][0]
+
+print(f"Working on {MAX_WORKERS} max workers...")
+
+for file1_idx, file1 in enumerate(file_list):
+    if file1_idx < next_idx:
         continue
 
-    file_list.append(file.stem)
-    file2class_map[file.stem] = file.parent
-
-with ThreadPoolExecutor() as executor:
+    file2_list = file_list[file1_idx + 1 :]
     jobs = {}
 
-    print("Preparing thread jobs...")
-
-    for i, file1 in tqdm(enumerate(file_list), total=len(file_list)):
-        file2_list = file_list[i + 1 :]
-
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         for file2 in file2_list:
-            jobs[(file1, file2)] = executor.submit(compute_iou, file1, file2)
+            file2_idx = file_list.index(file2)
+            jobs[(file1_idx, file2_idx)] = executor.submit(compute_iou, file1, file2)
 
-    print(f"Executing jobs...")
+        print(f"({file1_idx+1}/{len(file_list)})")
 
-    for (file1, file2), job in tqdm(jobs.items(), total=len(jobs), dynamic_ncols=True):
-        i = file_list.index(file1)
-        j = file_list.index(file2)
-        data[i, j] = job.result()
+        for (i, j), job in tqdm(jobs.items(), total=len(jobs), dynamic_ncols=True):
+            data[i, j] = job.result()
 
-np.savez_compressed(MASK_DIR / "iou.npz", data)
+    np.savez_compressed(IOU_PATH, data)
