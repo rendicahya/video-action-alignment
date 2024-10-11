@@ -101,9 +101,12 @@ for file1_idx, file1 in enumerate(file_list):
             file2_idx = file_list.index(file2)
             jobs[(file1_idx, file2_idx)] = executor.submit(compute_iou, file1, file2)
 
-        print(f"({file1_idx+1}/{len(file_list)})")
-
-        for (i, j), job in tqdm(jobs.items(), total=len(jobs), dynamic_ncols=True):
+        for (i, j), job in tqdm(
+            jobs.items(),
+            total=len(jobs),
+            dynamic_ncols=True,
+            desc=f"({file1_idx+1}/{len(file_list)})",
+        ):
             data[i, j] = job.result()
 
     if file1_idx % 10 == 0:
