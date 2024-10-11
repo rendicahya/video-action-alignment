@@ -77,60 +77,58 @@ def cutmix_fn(
 
 
 def main():
-    root = Path.cwd()
-    dataset = conf.active.dataset
-    detector = conf.active.detector
-    det_confidence = conf.detect[detector].confidence
-    smooth_edge = conf.cutmix.smooth_edge
-    scene_replace = conf.cutmix.scene.replace
+    ROOT = Path.cwd()
+    DATASET = conf.active.dataset
+    DETECTOR = conf.active.detector
+    DET_CONFIDENCE = conf.detect[DETECTOR].confidence
+    SMOOTH_EDGE = conf.cutmix.smooth_edge
+    SCENE_REPLACE = conf.cutmix.scene.replace
     scene_transform = conf.cutmix.scene.transform
     scene_selection_method = conf.cutmix.scene.selection.method
     scene_selection_tolerance = conf.cutmix.scene.selection.tolerance
     multiplication = conf.cutmix.multiplication
-    video_ext = conf.datasets[dataset].ext
-    n_videos = conf.datasets[dataset].n_videos
-    random_seed = conf.active.random_seed
-    video_in_dir = root / "data" / dataset / "videos"
-    video_writer = conf.cutmix.output.writer
-    mask_dir = (
-        root / "data" / dataset / detector / str(det_confidence) / "detect" / "mask"
+    EXT = conf.datasets[DATASET].ext
+    N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
+    RANDOM_SEED = conf.active.RANDOM_SEED
+    VIDEO_IN_DIR = ROOT / "data" / DATASET / "videos"
+    VIDEO_WRITER = conf.cutmix.output.writer
+    MASK_DIR = (
+        ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
     )
-    video_out_dir = (
-        root
+    VIDEO_OUT__DIR = (
+        ROOT
         / "data"
-        / dataset
-        / detector
-        / str(det_confidence)
+        / DATASET
+        / DETECTOR
+        / str(DET_CONFIDENCE)
         / "mix"
         / scene_selection_method
         / scene_transform
     )
-    out_ext = conf.cutmix.output.ext
     action2scenes_dict = defaultdict(list)
     scene2action_dict = {}
 
-    print("Σ videos:", n_videos)
+    print("Σ videos:", N_VIDEOS)
     print("Multiplication:", multiplication)
-    print("Smooth edge:", smooth_edge)
-    print("Input:", video_in_dir.relative_to(root))
-    print("Mask:", mask_dir.relative_to(root))
-    print("Output:", video_out_dir.relative_to(root))
-    print("Writer:", video_writer)
+    print("Smooth edge:", SMOOTH_EDGE)
+    print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
+    print("Mask:", MASK_DIR.relative_to(ROOT))
+    print("Output:", VIDEO_OUT__DIR.relative_to(ROOT))
     print("Scene selection:", scene_selection_method)
     print("Scene transform:", scene_transform)
 
-    assert_that(video_in_dir).is_directory().is_readable()
-    assert_that(mask_dir).is_directory().is_readable()
+    assert_that(VIDEO_IN_DIR).is_directory().is_readable()
+    assert_that(MASK_DIR).is_directory().is_readable()
     assert_that(scene_selection_method).is_in("random", "area", "iou")
-    assert_that(scene_replace).is_in("noop", "white", "black", "inpaint")
+    assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
     assert_that(scene_transform).is_in("notransform", "hflip")
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
 
-    random.seed(random_seed)
+    random.seed(RANDOM_SEED)
 
-    with open(video_in_dir / "list.txt") as f:
+    with open(VIDEO_IN_DIR / "list.txt") as f:
         for line in f:
             action, filename = line.split()[0].split("/")
             stem = os.path.splitext(filename)[0]
@@ -141,15 +139,15 @@ def main():
                 scene2action_dict[stem] = action
 
     if scene_selection_method == "area":
-        with open(mask_dir / "ratio.json") as f:
+        with open(MASK_DIR / "ratio.json") as f:
             ratio_json = json.load(f)
 
-    bar = tqdm(total=n_videos * multiplication, dynamic_ncols=True)
+    bar = tqdm(total=N_VIDEOS * multiplication, dynamic_ncols=True)
     n_written = 0
 
-    for file in video_in_dir.glob(f"**/*{video_ext}"):
+    for file in VIDEO_IN_DIR.glob(f"**/*{EXT}"):
         action = file.parent.name
-        video_mask_path = mask_dir / action / file.with_suffix(".npz").name
+        video_mask_path = MASK_DIR / action / file.with_suffix(".npz").name
 
         if not video_mask_path.is_file() or not video_mask_path.exists():
             continue
@@ -188,8 +186,8 @@ def main():
                 scene_class = scene2action_dict[scene]
 
             video_out_path = (
-                video_out_dir / action / f"{file.stem}-{i}-{scene_class}"
-            ).with_suffix(out_ext)
+                VIDEO_OUT__DIR / action / f"{file.stem}-{i}-{scene_class}"
+            ).with_suffix(".mp4")
 
             if (
                 video_out_path.exists()
@@ -198,21 +196,21 @@ def main():
                 bar.update(1)
                 continue
 
-            if scene_replace == "noop":
+            if SCENE_REPLACE == "noop":
                 scene_mask = None
             else:
-                scene_mask_path = (mask_dir / scene_class / scene).with_suffix(".npz")
+                scene_mask_path = (MASK_DIR / scene_class / scene).with_suffix(".npz")
                 scene_mask = np.load(scene_mask_path)["arr_0"]
 
                 if len(scene_mask) > 500:
                     continue
 
-            scene_path = (video_in_dir / scene_class / scene).with_suffix(video_ext)
+            scene_path = (VIDEO_IN_DIR / scene_class / scene).with_suffix(EXT)
             out_frames = cutmix_fn(
                 file,
                 scene_path,
                 action_mask,
-                scene_replace,
+                SCENE_REPLACE,
                 scene_transform,
                 scene_mask,
             )
@@ -224,7 +222,7 @@ def main():
                 frames_to_video(
                     out_frames,
                     video_out_path,
-                    writer=video_writer,
+                    writer="moviepy",
                     fps=fps,
                 )
 
