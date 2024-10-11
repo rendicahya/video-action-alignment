@@ -60,10 +60,6 @@
       "replace": "black",
       "transform": "notransform",
       "selection": { "method": "area", "tolerance": 0.1 }
-    },
-    "output": {
-      "ext": ".mp4",
-      "writer": "moviepy"
     }
   }
 }
