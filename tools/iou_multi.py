@@ -105,7 +105,7 @@ for file1_idx, file1 in enumerate(file_list):
             jobs.items(),
             total=len(jobs),
             dynamic_ncols=True,
-            desc=f"({file1_idx+1}/{len(file_list)})",
+            desc=f"({file1_idx+1}/{len(file_list)}) {len(MASK_BANK[file1])} fr",
         ):
             data[i, j] = job.result()
 
