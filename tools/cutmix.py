@@ -1,6 +1,7 @@
 import sys
 
 sys.path.append(".")
+
 import json
 import os
 import random
@@ -83,15 +84,14 @@ def main():
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
     SMOOTH_EDGE = conf.cutmix.smooth_edge
     SCENE_REPLACE = conf.cutmix.scene.replace
-    scene_transform = conf.cutmix.scene.transform
-    scene_selection_method = conf.cutmix.scene.selection.method
-    scene_selection_tolerance = conf.cutmix.scene.selection.tolerance
-    multiplication = conf.cutmix.multiplication
+    SCENE_TRANSFORM = conf.cutmix.scene.transform
+    SCENE_SELECTION_METHOD = conf.cutmix.scene.selection.method
+    SCENE_SELECTION_TOLERANCE = conf.cutmix.scene.selection.tolerance
+    MULTIPLICATION = conf.cutmix.multiplication
     EXT = conf.datasets[DATASET].ext
     N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
     RANDOM_SEED = conf.active.RANDOM_SEED
     VIDEO_IN_DIR = ROOT / "data" / DATASET / "videos"
-    VIDEO_WRITER = conf.cutmix.output.writer
     MASK_DIR = (
         ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
     )
@@ -102,47 +102,53 @@ def main():
         / DETECTOR
         / str(DET_CONFIDENCE)
         / "mix"
-        / scene_selection_method
-        / scene_transform
+        / SCENE_SELECTION_METHOD
+        / SCENE_TRANSFORM
     )
-    action2scenes_dict = defaultdict(list)
-    scene2action_dict = {}
 
     print("Σ videos:", N_VIDEOS)
-    print("Multiplication:", multiplication)
+    print("MULTIPLICATION:", MULTIPLICATION)
     print("Smooth edge:", SMOOTH_EDGE)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
     print("Output:", VIDEO_OUT__DIR.relative_to(ROOT))
-    print("Scene selection:", scene_selection_method)
-    print("Scene transform:", scene_transform)
+    print("Scene selection:", SCENE_SELECTION_METHOD)
+    print("Scene transform:", SCENE_TRANSFORM)
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(scene_selection_method).is_in("random", "area", "iou")
+    assert_that(SCENE_SELECTION_METHOD).is_in("random", "area", "iou")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
-    assert_that(scene_transform).is_in("notransform", "hflip")
+    assert_that(SCENE_TRANSFORM).is_in("notransform", "hflip")
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
 
     random.seed(RANDOM_SEED)
 
+    action2scenes_dict = defaultdict(list)
+    scene2action_dict = {}
+    video_list = []
+
     with open(VIDEO_IN_DIR / "list.txt") as f:
         for line in f:
             action, filename = line.split()[0].split("/")
             stem = os.path.splitext(filename)[0]
 
-            if scene_selection_method == "random":
+            if SCENE_SELECTION_METHOD == "random":
                 action2scenes_dict[action].append(stem)
-            elif scene_selection_method == "area":
+            elif SCENE_SELECTION_METHOD == "area":
                 scene2action_dict[stem] = action
+            elif SCENE_SELECTION_METHOD == "iou":
+                video_list.append(stem)
 
-    if scene_selection_method == "area":
+    if SCENE_SELECTION_METHOD == "area":
         with open(MASK_DIR / "ratio.json") as f:
             ratio_json = json.load(f)
+    elif SCENE_SELECTION_METHOD == "iou":
+        IOU_MATRIX = np.load(MASK_DIR / "iou.npz")
 
-    bar = tqdm(total=N_VIDEOS * multiplication, dynamic_ncols=True)
+    bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
 
     for file in VIDEO_IN_DIR.glob(f"**/*{EXT}"):
@@ -152,26 +158,26 @@ def main():
         if not video_mask_path.is_file() or not video_mask_path.exists():
             continue
 
-        if scene_selection_method == "random":
+        if SCENE_SELECTION_METHOD == "random":
             scene_class_options = [s for s in action2scenes_dict.keys() if s != action]
-        if scene_selection_method == "area":
+        if SCENE_SELECTION_METHOD == "area":
             action_mask = np.load(video_mask_path)["arr_0"]
             action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
 
         i = 0
 
-        while i < multiplication:
-            bar.set_description(f"{file.stem} ({i+1}/{multiplication})")
+        while i < MULTIPLICATION:
+            bar.set_description(f"{file.stem} ({i+1}/{MULTIPLICATION})")
 
-            if scene_selection_method == "random":
+            if SCENE_SELECTION_METHOD == "random":
                 scene_class = random.choice(scene_class_options)
                 scene_options = action2scenes_dict[scene_class]
                 scene = random.choice(scene_options)
 
                 scene_class_options.remove(scene_class)
-            elif scene_selection_method == "area":
-                mask_ratio_lower = action_mask_ratio * (1 - scene_selection_tolerance)
-                mask_ratio_upper = action_mask_ratio * (1 + scene_selection_tolerance)
+            elif SCENE_SELECTION_METHOD == "area":
+                mask_ratio_lower = action_mask_ratio * (1 - SCENE_SELECTION_TOLERANCE)
+                mask_ratio_upper = action_mask_ratio * (1 + SCENE_SELECTION_TOLERANCE)
                 scene_options = [
                     filename
                     for filename, ratio in ratio_json.items()
@@ -184,6 +190,9 @@ def main():
 
                 scene = random.choice(scene_options)
                 scene_class = scene2action_dict[scene]
+
+            elif SCENE_SELECTION_METHOD == "iou":
+                pass
 
             video_out_path = (
                 VIDEO_OUT__DIR / action / f"{file.stem}-{i}-{scene_class}"
@@ -211,7 +220,7 @@ def main():
                 scene_path,
                 action_mask,
                 SCENE_REPLACE,
-                scene_transform,
+                SCENE_TRANSFORM,
                 scene_mask,
             )
 
