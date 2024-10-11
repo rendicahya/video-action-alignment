@@ -107,7 +107,7 @@ def main():
     )
 
     print("n videos:", N_VIDEOS)
-    print("MULTIPLICATION:", MULTIPLICATION)
+    print("Multiplication:", MULTIPLICATION)
     print("Smooth edge:", SMOOTH_EDGE)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
@@ -131,11 +131,13 @@ def main():
 
     action2scenes_dict = defaultdict(list)
     scene2action_dict = {}
+    action_list = np.array(N_VIDEOS, np.uint8)
     video_list = []
 
     with open(VIDEO_IN_DIR / "list.txt") as f:
-        for line in f:
-            action, filename = line.split()[0].split("/")
+        for i, line in enumerate(f):
+            path, action_idx = line.split()
+            action, filename = path.split("/")
             stem = os.path.splitext(filename)[0]
 
             if SCENE_SELECTION_METHOD == "random":
@@ -143,6 +145,7 @@ def main():
             elif SCENE_SELECTION_METHOD == "area":
                 scene2action_dict[stem] = action
             elif SCENE_SELECTION_METHOD == "iou":
+                action_list[i] = int(action_idx)
                 video_list.append(stem)
 
     if SCENE_SELECTION_METHOD == "area":
@@ -154,96 +157,117 @@ def main():
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
 
-    for file in VIDEO_IN_DIR.glob(f"**/*{EXT}"):
-        action = file.parent.name
-        video_mask_path = MASK_DIR / action / file.with_suffix(".npz").name
+    with open(VIDEO_IN_DIR / "list.txt") as f:
+        for file_idx, line in enumerate(f):
+            path, action_idx = line.split()
+            action, file = path.split("/")
+            video_mask_path = (MASK_DIR / action / file).with_suffix(".npz")
 
-        if not video_mask_path.is_file() or not video_mask_path.exists():
-            continue
-
-        if SCENE_SELECTION_METHOD == "random":
-            scene_class_options = [s for s in action2scenes_dict.keys() if s != action]
-        if SCENE_SELECTION_METHOD == "area":
-            action_mask = np.load(video_mask_path)["arr_0"]
-            action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
-
-        i = 0
-
-        while i < MULTIPLICATION:
-            bar.set_description(f"{file.stem} ({i+1}/{MULTIPLICATION})")
-
-            if SCENE_SELECTION_METHOD == "random":
-                scene_class = random.choice(scene_class_options)
-                scene_options = action2scenes_dict[scene_class]
-                scene = random.choice(scene_options)
-
-                scene_class_options.remove(scene_class)
-            elif SCENE_SELECTION_METHOD == "area":
-                mask_ratio_lower = action_mask_ratio * (1 - SCENE_SELECTION_TOLERANCE)
-                mask_ratio_upper = action_mask_ratio * (1 + SCENE_SELECTION_TOLERANCE)
-                scene_options = [
-                    filename
-                    for filename, ratio in ratio_json.items()
-                    if mask_ratio_lower < ratio < mask_ratio_upper
-                    and scene2action_dict[filename] != action
-                ]
-
-                if len(scene_options) <= 1:
-                    break
-
-                scene = random.choice(scene_options)
-                scene_class = scene2action_dict[scene]
-
-            elif SCENE_SELECTION_METHOD == "iou":
-                pass
-
-            video_out_path = (
-                VIDEO_OUT__DIR / action / f"{file.stem}-{i}-{scene_class}"
-            ).with_suffix(".mp4")
-
-            if (
-                video_out_path.exists()
-                and mmcv.VideoReader(str(video_out_path)).frame_cnt > 0
-            ):
-                bar.update(1)
+            if not video_mask_path.is_file() or not video_mask_path.exists():
                 continue
 
-            if SCENE_REPLACE == "noop":
-                scene_mask = None
-            else:
-                scene_mask_path = (MASK_DIR / scene_class / scene).with_suffix(".npz")
-                scene_mask = np.load(scene_mask_path)["arr_0"]
+            if SCENE_SELECTION_METHOD == "random":
+                scene_class_options = [
+                    s for s in action2scenes_dict.keys() if s != action
+                ]
+            elif SCENE_SELECTION_METHOD == "area":
+                action_mask = np.load(video_mask_path)["arr_0"]
+                action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
 
-                if len(scene_mask) > 500:
+            i = 0
+
+            while i < MULTIPLICATION:
+                bar.set_description(f"{file.stem} ({i+1}/{MULTIPLICATION})")
+
+                if SCENE_SELECTION_METHOD == "random":
+                    scene_class = random.choice(scene_class_options)
+                    scene_options = action2scenes_dict[scene_class]
+                    scene = random.choice(scene_options)
+
+                    scene_class_options.remove(scene_class)
+
+                elif SCENE_SELECTION_METHOD == "area":
+                    mask_ratio_lower = action_mask_ratio * (
+                        1 - SCENE_SELECTION_TOLERANCE
+                    )
+                    mask_ratio_upper = action_mask_ratio * (
+                        1 + SCENE_SELECTION_TOLERANCE
+                    )
+                    scene_options = [
+                        stem
+                        for stem, ratio in ratio_json.items()
+                        if mask_ratio_lower < ratio < mask_ratio_upper
+                        and scene2action_dict[stem] != action
+                    ]
+
+                    if len(scene_options) <= 1:
+                        break
+
+                    scene = random.choice(scene_options)
+                    scene_class = scene2action_dict[scene]
+
+                elif SCENE_SELECTION_METHOD == "iou":
+                    iou_row = IOU_MATRIX[file_idx][file_idx:]
+                    iou_col = IOU_MATRIX[:, file_idx][:file_idx]
+                    iou_merge = np.concatenate((iou_col, iou_row))
+                    sort_all_actions = np.argsort(iou_merge)
+                    exclude_idx = np.where(action_list == action_idx)
+                    sort_other_actions = np.setdiff1d(
+                        sort_all_actions, exclude_idx, assume_unique=True
+                    )
+                    scene_id = sort_other_actions.min()
+                    scene = video_list[scene_id]
+                    scene_class = scene2action_dict[scene]
+
+                video_out_path = (
+                    VIDEO_OUT__DIR / action / f"{file.stem}-{i}-{scene_class}"
+                ).with_suffix(".mp4")
+
+                if (
+                    video_out_path.exists()
+                    and mmcv.VideoReader(str(video_out_path)).frame_cnt > 0
+                ):
+                    bar.update(1)
                     continue
 
-            scene_path = (VIDEO_IN_DIR / scene_class / scene).with_suffix(EXT)
-            out_frames = cutmix_fn(
-                file,
-                scene_path,
-                action_mask,
-                SCENE_REPLACE,
-                SCENE_TRANSFORM,
-                scene_mask,
-            )
+                if SCENE_REPLACE == "noop":
+                    scene_mask = None
+                else:
+                    scene_mask_path = (MASK_DIR / scene_class / scene).with_suffix(
+                        ".npz"
+                    )
+                    scene_mask = np.load(scene_mask_path)["arr_0"]
 
-            if out_frames:
-                fps = mmcv.VideoReader(str(file)).fps
+                    if len(scene_mask) > 500:
+                        continue
 
-                video_out_path.parent.mkdir(parents=True, exist_ok=True)
-                frames_to_video(
-                    out_frames,
-                    video_out_path,
-                    writer="moviepy",
-                    fps=fps,
+                scene_path = (VIDEO_IN_DIR / scene_class / scene).with_suffix(EXT)
+                out_frames = cutmix_fn(
+                    file,
+                    scene_path,
+                    action_mask,
+                    SCENE_REPLACE,
+                    SCENE_TRANSFORM,
+                    scene_mask,
                 )
 
-                n_written += 1
-                i += 1
-            else:
-                print("out_frames None: ", file.name)
+                if out_frames:
+                    fps = mmcv.VideoReader(str(file)).fps
 
-            bar.update(1)
+                    video_out_path.parent.mkdir(parents=True, exist_ok=True)
+                    frames_to_video(
+                        out_frames,
+                        video_out_path,
+                        writer="moviepy",
+                        fps=fps,
+                    )
+
+                    n_written += 1
+                    i += 1
+                else:
+                    print("out_frames None: ", file.name)
+
+                bar.update(1)
 
     bar.close()
     print("Written videos:", n_written)
