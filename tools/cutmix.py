@@ -106,7 +106,7 @@ def main():
         / SCENE_TRANSFORM
     )
 
-    print("Σ videos:", N_VIDEOS)
+    print("n videos:", N_VIDEOS)
     print("MULTIPLICATION:", MULTIPLICATION)
     print("Smooth edge:", SMOOTH_EDGE)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
@@ -120,6 +120,9 @@ def main():
     assert_that(SCENE_SELECTION_METHOD).is_in("random", "area", "iou")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
     assert_that(SCENE_TRANSFORM).is_in("notransform", "hflip")
+
+    if SCENE_SELECTION_METHOD == "iou":
+        assert_that(MASK_DIR / "iou.npz").is_file().is_readable()
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
