@@ -133,6 +133,7 @@ def main():
     scene2action_dict = {}
     action_list = np.zeros(N_VIDEOS, np.uint8)
     video_list = []
+    action_name2idx = {}
 
     with open(VIDEO_IN_DIR / "list.txt") as f:
         for i, line in enumerate(f):
@@ -149,10 +150,14 @@ def main():
                 action_list[i] = int(action_idx)
                 video_list.append(stem)
 
+                if action not in action_name2idx:
+                    action_name2idx[action] = int(action_idx)
+
     if SCENE_SELECTION_METHOD == "area":
         with open(MASK_DIR / "ratio.json") as f:
             ratio_json = json.load(f)
     elif SCENE_SELECTION_METHOD == "iou":
+        action_unique = np.unique(action_list)
         IOU_MATRIX = np.load(MASK_DIR / "iou.npz")["arr_0"]
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
@@ -164,6 +169,7 @@ def main():
             file = Path(VIDEO_IN_DIR / path)
             action = file.parent.name
             video_mask_path = (MASK_DIR / action / file.name).with_suffix(".npz")
+            used_actions = [int(action_idx)]
 
             if not video_mask_path.is_file() or not video_mask_path.exists():
                 continue
@@ -181,10 +187,6 @@ def main():
                 iou_col = IOU_MATRIX[:, file_idx][:file_idx]
                 iou_merge = np.concatenate((iou_col, iou_row))
                 sort_all_actions = np.argsort(iou_merge)
-                videos_same_action = np.where(action_list == int(action_idx))
-                sort_other_actions = np.setdiff1d(
-                    sort_all_actions, videos_same_action, assume_unique=True
-                )
 
             i = 0
 
@@ -219,9 +221,16 @@ def main():
                     scene_class = scene2action_dict[scene]
 
                 elif SCENE_SELECTION_METHOD == "iou":
+                    used_videos = np.where(np.isin(action_list, used_actions))
+                    sort_other_actions = np.setdiff1d(
+                        sort_all_actions, used_videos, assume_unique=True
+                    )
                     scene_id = sort_other_actions[i]
                     scene = video_list[scene_id]
                     scene_class = scene2action_dict[scene]
+                    scene_class_idx = action_name2idx[scene_class]
+
+                    used_actions.append(scene_class_idx)
 
                 video_out_path = (
                     VIDEO_OUT__DIR / action / f"{file.stem}-{i}-{scene_class}"
