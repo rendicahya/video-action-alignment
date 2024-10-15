@@ -23,18 +23,18 @@ from tqdm import tqdm
     ),
 )
 def main(video_path):
-    out_file = video_path / "list.txt"
-    n_videos = sum(1 for f in video_path.glob(f"**/*") if f.is_file())
+    OUT_FILE = video_path / "list.txt"
+    N_VIDEOS = sum(1 for f in video_path.glob(f"**/*.*"))
 
     print("Input:", video_path)
-    print("Output:", out_file)
-    print("Σ videos:", n_videos)
+    print("Output:", OUT_FILE)
+    print("Σ videos:", N_VIDEOS)
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
 
     data = []
-    bar = tqdm(total=n_videos, dynamic_ncols=True)
+    bar = tqdm(total=N_VIDEOS, dynamic_ncols=True)
     class_id = 0
 
     for action in sorted(video_path.iterdir()):
@@ -54,7 +54,7 @@ def main(video_path):
 
     bar.close()
 
-    with open(out_file, "w") as f:
+    with open(OUT_FILE, "w") as f:
         f.write(os.linesep.join(data))
 
 
