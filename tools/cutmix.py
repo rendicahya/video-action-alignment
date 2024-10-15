@@ -131,7 +131,7 @@ def main():
 
     action2scenes_dict = defaultdict(list)
     scene2action_dict = {}
-    action_list = np.array(N_VIDEOS, np.uint8)
+    action_list = np.zeros(N_VIDEOS, np.uint8)
     video_list = []
 
     with open(VIDEO_IN_DIR / "list.txt") as f:
@@ -145,6 +145,7 @@ def main():
             elif SCENE_SELECTION_METHOD == "area":
                 scene2action_dict[stem] = action
             elif SCENE_SELECTION_METHOD == "iou":
+                scene2action_dict[stem] = action
                 action_list[i] = int(action_idx)
                 video_list.append(stem)
 
@@ -152,7 +153,7 @@ def main():
         with open(MASK_DIR / "ratio.json") as f:
             ratio_json = json.load(f)
     elif SCENE_SELECTION_METHOD == "iou":
-        IOU_MATRIX = np.load(MASK_DIR / "iou.npz")
+        IOU_MATRIX = np.load(MASK_DIR / "iou.npz")["arr_0"]
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
@@ -160,24 +161,35 @@ def main():
     with open(VIDEO_IN_DIR / "list.txt") as f:
         for file_idx, line in enumerate(f):
             path, action_idx = line.split()
-            action, file = path.split("/")
-            video_mask_path = (MASK_DIR / action / file).with_suffix(".npz")
+            file = Path(VIDEO_IN_DIR / path)
+            action = file.parent.name
+            video_mask_path = (MASK_DIR / action / file.name).with_suffix(".npz")
 
             if not video_mask_path.is_file() or not video_mask_path.exists():
                 continue
+
+            action_mask = np.load(video_mask_path)["arr_0"]
 
             if SCENE_SELECTION_METHOD == "random":
                 scene_class_options = [
                     s for s in action2scenes_dict.keys() if s != action
                 ]
             elif SCENE_SELECTION_METHOD == "area":
-                action_mask = np.load(video_mask_path)["arr_0"]
                 action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
+            elif SCENE_SELECTION_METHOD == "iou":
+                iou_row = IOU_MATRIX[file_idx][file_idx:]
+                iou_col = IOU_MATRIX[:, file_idx][:file_idx]
+                iou_merge = np.concatenate((iou_col, iou_row))
+                sort_all_actions = np.argsort(iou_merge)
+                videos_same_action = np.where(action_list == int(action_idx))
+                sort_other_actions = np.setdiff1d(
+                    sort_all_actions, videos_same_action, assume_unique=True
+                )
 
             i = 0
 
             while i < MULTIPLICATION:
-                bar.set_description(f"{file.stem} ({i+1}/{MULTIPLICATION})")
+                bar.set_description(f"{file.stem[:40]} ({i+1}/{MULTIPLICATION})")
 
                 if SCENE_SELECTION_METHOD == "random":
                     scene_class = random.choice(scene_class_options)
@@ -207,15 +219,7 @@ def main():
                     scene_class = scene2action_dict[scene]
 
                 elif SCENE_SELECTION_METHOD == "iou":
-                    iou_row = IOU_MATRIX[file_idx][file_idx:]
-                    iou_col = IOU_MATRIX[:, file_idx][:file_idx]
-                    iou_merge = np.concatenate((iou_col, iou_row))
-                    sort_all_actions = np.argsort(iou_merge)
-                    exclude_idx = np.where(action_list == action_idx)
-                    sort_other_actions = np.setdiff1d(
-                        sort_all_actions, exclude_idx, assume_unique=True
-                    )
-                    scene_id = sort_other_actions.min()
+                    scene_id = sort_other_actions[i]
                     scene = video_list[scene_id]
                     scene_class = scene2action_dict[scene]
 
@@ -268,6 +272,7 @@ def main():
                     print("out_frames None: ", file.name)
 
                 bar.update(1)
+            break
 
     bar.close()
     print("Written videos:", n_written)
