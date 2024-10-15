@@ -281,7 +281,6 @@ def main():
                     print("out_frames None: ", file.name)
 
                 bar.update(1)
-            break
 
     bar.close()
     print("Written videos:", n_written)
