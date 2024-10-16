@@ -95,7 +95,7 @@ def main():
     MASK_DIR = (
         ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
     )
-    VIDEO_OUT__DIR = (
+    VIDEO_OUT_DIR = (
         ROOT
         / "data"
         / DATASET
@@ -111,17 +111,17 @@ def main():
     print("Smooth edge:", SMOOTH_EDGE)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
-    print("Output:", VIDEO_OUT__DIR.relative_to(ROOT))
+    print("Output:", VIDEO_OUT_DIR.relative_to(ROOT))
     print("Scene selection:", SCENE_SELECTION_METHOD)
     print("Scene transform:", SCENE_TRANSFORM)
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(SCENE_SELECTION_METHOD).is_in("random", "area", "iou")
+    assert_that(SCENE_SELECTION_METHOD).is_in("random", "area", "iou", "iou-2")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
     assert_that(SCENE_TRANSFORM).is_in("notransform", "hflip")
 
-    if SCENE_SELECTION_METHOD == "iou":
+    if SCENE_SELECTION_METHOD.startswith("iou"):
         assert_that(MASK_DIR / "iou.npz").is_file().is_readable()
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
@@ -145,7 +145,7 @@ def main():
                 action2scenes_dict[action].append(stem)
             elif SCENE_SELECTION_METHOD == "area":
                 scene2action_dict[stem] = action
-            elif SCENE_SELECTION_METHOD == "iou":
+            elif SCENE_SELECTION_METHOD.startswith("iou"):
                 scene2action_dict[stem] = action
                 action_list[i] = int(action_idx)
                 video_list.append(stem)
@@ -156,7 +156,7 @@ def main():
     if SCENE_SELECTION_METHOD == "area":
         with open(MASK_DIR / "ratio.json") as f:
             ratio_json = json.load(f)
-    elif SCENE_SELECTION_METHOD == "iou":
+    elif SCENE_SELECTION_METHOD.startswith("iou"):
         action_unique = np.unique(action_list)
         IOU_MATRIX = np.load(MASK_DIR / "iou.npz")["arr_0"]
 
@@ -182,7 +182,7 @@ def main():
                 ]
             elif SCENE_SELECTION_METHOD == "area":
                 action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
-            elif SCENE_SELECTION_METHOD == "iou":
+            elif SCENE_SELECTION_METHOD.startswith("iou"):
                 iou_row = IOU_MATRIX[file_idx][file_idx:]
                 iou_col = IOU_MATRIX[:, file_idx][:file_idx]
                 iou_merge = np.concatenate((iou_col, iou_row))
@@ -232,8 +232,20 @@ def main():
 
                     used_actions.append(scene_class_idx)
 
+                elif SCENE_SELECTION_METHOD == "iou-2":
+                    used_videos = np.where(np.isin(action_list, used_actions))
+                    sort_other_actions = np.setdiff1d(
+                        sort_all_actions, used_videos, assume_unique=True
+                    )
+                    scene_id = random.choice(sort_other_actions[:10])
+                    scene = video_list[scene_id]
+                    scene_class = scene2action_dict[scene]
+                    scene_class_idx = action_name2idx[scene_class]
+
+                    used_actions.append(scene_class_idx)
+
                 video_out_path = (
-                    VIDEO_OUT__DIR / action / f"{file.stem}-{i}-{scene_class}"
+                    VIDEO_OUT_DIR / action / f"{file.stem}-{i}-{scene_class}"
                 ).with_suffix(".mp4")
 
                 if (
