@@ -38,8 +38,23 @@ from python_video import frames_to_video
     type=int,
 )
 def main(mask_path, output_path, fps):
-    mask_bundle = np.load(mask_path)["arr_0"]
-    out_frames = [np.repeat(np.expand_dims(f, axis=2), 3, axis=2) for f in mask_bundle]
+    mask = np.load(mask_path)["arr_0"]
+    out_frames = []
+
+    for i, frame in enumerate(mask):
+        frame = np.repeat(np.expand_dims(frame, axis=2), 3, axis=2)
+        frame = cv2.putText(
+            frame,
+            str(i),
+            (10, 24),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
+
+        out_frames.append(frame)
 
     frames_to_video(
         out_frames,
