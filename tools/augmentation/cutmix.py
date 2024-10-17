@@ -20,7 +20,7 @@ from python_video import frames_to_video
 
 
 def cutmix_fn(
-    actor_path, scene_path, action_mask, scene_replace, scene_mask, frame_op=None
+    actor_path, scene_path, action_mask, scene_replace, scene_mask, scene_transform
 ):
     if not actor_path.is_file() or not actor_path.exists():
         print("Not a file or not exists:", actor_path)
@@ -34,6 +34,7 @@ def cutmix_fn(
     w, h = actor_reader.resolution
     scene_frame = None
     blank = np.zeros((h, w), np.uint8)
+    do_scene_transform = random.random() <= scene_transform["prob"]
 
     if scene_mask.shape[:2] != (h, w) and scene_replace in ("white", "black"):
         scene_mask = np.moveaxis(scene_mask, 0, -1)
@@ -65,8 +66,8 @@ def cutmix_fn(
         if actor_mask is None:
             actor_mask = blank
 
-        if frame_op:
-            scene_frame = frame_op(scene_frame)
+        if do_scene_transform:
+            scene_frame = scene_transform["fn"](scene_frame)
 
         actor = cv2.bitwise_and(actor_frame, actor_frame, mask=actor_mask)
         scene = cv2.bitwise_and(scene_frame, scene_frame, mask=255 - actor_mask)
@@ -111,10 +112,10 @@ def main():
         VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / f"{VIDEO_OUT_DIR.name}-closing"
 
     if SCENE_TRANSFORM == "hflip":
-        frame_op = lambda frame: cv2.flip(frame, 1) if random.random() < 0.5 else frame
+        scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
         VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / f"{VIDEO_OUT_DIR.name}-hflip"
     else:
-        frame_op = None
+        scene_transform = None
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
@@ -279,7 +280,12 @@ def main():
 
                 scene_path = (VIDEO_IN_DIR / scene_class / scene).with_suffix(EXT)
                 out_frames = cutmix_fn(
-                    file, scene_path, action_mask, SCENE_REPLACE, scene_mask, frame_op
+                    file,
+                    scene_path,
+                    action_mask,
+                    SCENE_REPLACE,
+                    scene_mask,
+                    scene_transform,
                 )
 
                 if out_frames:
