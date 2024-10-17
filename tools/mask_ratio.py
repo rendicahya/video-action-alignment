@@ -26,13 +26,13 @@ DATASET = conf.active.dataset
 DETECTOR = conf.active.detector
 DET_CONFIDENCE = conf.detect[DETECTOR].confidence
 N_FILES = conf.datasets[DATASET].n_videos
-MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
+MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
 MAX_WORKERS = conf.active.max_workers
 OUT_PATH = MASK_DIR / "ratio.json"
 data = {}
 
-print("Input:", MASK_DIR)
-print("Output:", OUT_PATH)
+print("Input:", MASK_DIR.relative_to(ROOT))
+print("Output:", OUT_PATH.relative_to(ROOT))
 print("n videos:", N_FILES)
 
 if not click.confirm("\nDo you want to continue?", show_default=True):
