@@ -19,7 +19,9 @@ from config import settings as conf
 from python_video import frames_to_video
 
 
-def cutmix_fn(actor_path, scene_path, action_mask, scene_replace, scene_mask):
+def cutmix_fn(
+    actor_path, scene_path, action_mask, scene_replace, scene_mask, frame_op=None
+):
     if not actor_path.is_file() or not actor_path.exists():
         print("Not a file or not exists:", actor_path)
         return None
@@ -63,8 +65,8 @@ def cutmix_fn(actor_path, scene_path, action_mask, scene_replace, scene_mask):
         if actor_mask is None:
             actor_mask = blank
 
-        # if scene_transform == "hflip":
-        #     scene_frame = cv2.flip(scene_frame, 1)
+        if frame_op:
+            scene_frame = frame_op(scene_frame)
 
         actor = cv2.bitwise_and(actor_frame, actor_frame, mask=actor_mask)
         scene = cv2.bitwise_and(scene_frame, scene_frame, mask=255 - actor_mask)
@@ -83,7 +85,7 @@ def main():
     # SMOOTH_EDGE = conf.cutmix.smooth_edge
     TEMPORAL_CLOSING = conf.cutmix.temporal_closing
     SCENE_REPLACE = conf.cutmix.scene.replace
-    # SCENE_TRANSFORM = conf.cutmix.scene.transform
+    SCENE_TRANSFORM = conf.cutmix.scene.transform
     SCENE_SELECTION_METHOD = conf.cutmix.scene.selection.method
     SCENE_SELECTION_TOLERANCE = conf.cutmix.scene.selection.tolerance
     MULTIPLICATION = conf.cutmix.multiplication
@@ -102,12 +104,17 @@ def main():
         / str(DET_CONFIDENCE)
         / "mix"
         / SCENE_SELECTION_METHOD
-        # / SCENE_TRANSFORM
     )
 
     if TEMPORAL_CLOSING:
         MASK_DIR = MASK_DIR.parent / "mask-closing"
-        VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / f"{SCENE_SELECTION_METHOD}-closing"
+        VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / f"{VIDEO_OUT_DIR.name}-closing"
+
+    if SCENE_TRANSFORM == "hflip":
+        frame_op = lambda frame: cv2.flip(frame, 1) if random.random() < 0.5 else frame
+        VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / f"{VIDEO_OUT_DIR.name}-hflip"
+    else:
+        frame_op = None
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
@@ -117,13 +124,13 @@ def main():
     print("Mask:", MASK_DIR.relative_to(ROOT))
     print("Output:", VIDEO_OUT_DIR.relative_to(ROOT))
     print("Scene selection:", SCENE_SELECTION_METHOD)
-    # print("Scene transform:", SCENE_TRANSFORM)
+    print("Scene transform:", SCENE_TRANSFORM)
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
     assert_that(SCENE_SELECTION_METHOD).is_in("random", "area", "iou", "iou-2")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
-    # assert_that(SCENE_TRANSFORM).is_in("notransform", "hflip")
+    assert_that(SCENE_TRANSFORM).is_in("notransform", "hflip")
 
     if SCENE_SELECTION_METHOD.startswith("iou"):
         assert_that(MASK_DIR / "iou.npz").is_file().is_readable()
@@ -161,7 +168,7 @@ def main():
         with open(MASK_DIR / "ratio.json") as f:
             ratio_json = json.load(f)
     elif SCENE_SELECTION_METHOD.startswith("iou"):
-        action_unique = np.unique(action_list)
+        # action_unique = np.unique(action_list)
         IOU_MATRIX = np.load(MASK_DIR / "iou.npz")["arr_0"]
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
@@ -272,11 +279,7 @@ def main():
 
                 scene_path = (VIDEO_IN_DIR / scene_class / scene).with_suffix(EXT)
                 out_frames = cutmix_fn(
-                    file,
-                    scene_path,
-                    action_mask,
-                    SCENE_REPLACE,
-                    scene_mask,
+                    file, scene_path, action_mask, SCENE_REPLACE, scene_mask, frame_op
                 )
 
                 if out_frames:
