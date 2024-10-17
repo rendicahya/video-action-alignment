@@ -28,6 +28,7 @@ def main():
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
     smooth_edge = conf.cutmix.smooth_edge
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
+    TEMPORAL_CLOSING_LENGTH = conf.temporal_closing.length
     OUT_DIR = MASK_DIR.parent / "mask-closing"
 
     print("Input:", MASK_DIR.relative_to(ROOT))
@@ -36,20 +37,19 @@ def main():
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
 
-    structuring_element = np.ones((5, 1, 1))
+    kernel = np.ones((TEMPORAL_CLOSING_LENGTH, 1, 1))
 
     for file in tqdm(MASK_DIR.glob(f"**/*.npz"), total=N_VIDEOS, dynamic_ncols=True):
-        if file.stem != "v_HorseRiding_g01_c01":
+        if file.parent == MASK_DIR:
             continue
 
         mask = np.load(file)["arr_0"]
-        closed = binary_closing(mask, structure=structuring_element)
+        closed = binary_closing(mask == 255, structure=kernel).astype(np.uint8) * 255
         action = file.parent.name
         out_path = OUT_DIR / action / f"{file.stem}.npz"
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(out_path, closed)
-        break
 
 
 if __name__ == "__main__":
