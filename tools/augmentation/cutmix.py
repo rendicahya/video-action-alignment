@@ -34,7 +34,9 @@ def cutmix_fn(
     w, h = actor_reader.resolution
     scene_frame = None
     blank = np.zeros((h, w), np.uint8)
-    do_scene_transform = random.random() <= scene_transform["prob"]
+
+    if scene_transform:
+        do_scene_transform = random.random() <= scene_transform["prob"]
 
     if scene_mask.shape[:2] != (h, w) and scene_replace in ("white", "black"):
         scene_mask = np.moveaxis(scene_mask, 0, -1)
@@ -66,7 +68,7 @@ def cutmix_fn(
         if actor_mask is None:
             actor_mask = blank
 
-        if do_scene_transform:
+        if scene_transform and do_scene_transform:
             scene_frame = scene_transform["fn"](scene_frame)
 
         actor = cv2.bitwise_and(actor_frame, actor_frame, mask=actor_mask)
@@ -198,7 +200,7 @@ def main():
                 iou_row = IOU_MATRIX[file_idx][file_idx:]
                 iou_col = IOU_MATRIX[:, file_idx][:file_idx]
                 iou_merge = np.concatenate((iou_col, iou_row))
-                sort_all_actions = np.argsort(iou_merge)
+                sort_all_actions = np.argsort(iou_merge)[::-1]
 
             i = 0
 
