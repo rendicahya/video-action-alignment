@@ -239,6 +239,7 @@ def main():
                     sort_other_actions = np.setdiff1d(
                         sort_all_actions, used_videos, assume_unique=True
                     )
+                    # Get scene with max IoU
                     scene_id = sort_other_actions[i]
                     scene = video_list[scene_id]
                     scene_class = scene2action_dict[scene]
@@ -251,6 +252,7 @@ def main():
                     sort_other_actions = np.setdiff1d(
                         sort_all_actions, used_videos, assume_unique=True
                     )
+                    # Get a random scene from top-10 IoU
                     scene_id = random.choice(sort_other_actions[:10])
                     scene = video_list[scene_id]
                     scene_class = scene2action_dict[scene]
