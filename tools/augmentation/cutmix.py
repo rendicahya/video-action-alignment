@@ -80,13 +80,17 @@ def cutmix_fn(
         yield cv2.cvtColor(mix, cv2.COLOR_BGR2RGB)
 
 
+def add_suffix(path: Path, suffix: str):
+    return path.parent / (path.stem + suffix)
+
+
 def main():
     ROOT = Path.cwd()
     DATASET = conf.active.dataset
     DETECTOR = conf.active.detector
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
-    # SMOOTH_EDGE = conf.cutmix.smooth_edge
-    TEMPORAL_CLOSING = conf.cutmix.temporal_closing
+    SMOOTH_EDGE = conf.cutmix.smooth_edge.enabled
+    TEMPORAL_MORPHOLOGY = conf.cutmix.temporal_morphology.op
     SCENE_REPLACE = conf.cutmix.scene.replace
     SCENE_TRANSFORM = conf.cutmix.scene.transform
     SCENE_SELECTION_METHOD = conf.cutmix.scene.selection.method
@@ -96,9 +100,7 @@ def main():
     N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
     RANDOM_SEED = conf.active.RANDOM_SEED
     VIDEO_IN_DIR = ROOT / "data" / DATASET / "videos"
-    MASK_DIR = (
-        ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect" / "mask"
-    )
+    MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
     VIDEO_OUT_DIR = (
         ROOT
         / "data"
@@ -109,9 +111,20 @@ def main():
         / SCENE_SELECTION_METHOD
     )
 
-    if TEMPORAL_CLOSING:
-        MASK_DIR = MASK_DIR.parent / "mask-closing"
-        VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / f"{VIDEO_OUT_DIR.name}-closing"
+    if TEMPORAL_MORPHOLOGY != "noop":
+        MASK_DIR = MASK_DIR.parent / (
+            "mask-closing" if TEMPORAL_MORPHOLOGY == "closing" else "mask-dilation"
+        )
+
+        VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / (
+            f"{VIDEO_OUT_DIR.name}-closing"
+            if TEMPORAL_MORPHOLOGY == "closing"
+            else f"{VIDEO_OUT_DIR.name}-dilation"
+        )
+
+    if SMOOTH_EDGE:
+        MASK_DIR = add_suffix(MASK_DIR, "-smooth")
+        VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-smooth")
 
     if SCENE_TRANSFORM == "hflip":
         scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
@@ -122,7 +135,7 @@ def main():
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
     # print("Smooth edge:", SMOOTH_EDGE)
-    print("Temporal closing:", TEMPORAL_CLOSING)
+    print("Temporal morphology:", TEMPORAL_MORPHOLOGY)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
     print("Output:", VIDEO_OUT_DIR.relative_to(ROOT))
@@ -171,7 +184,6 @@ def main():
         with open(MASK_DIR / "ratio.json") as f:
             ratio_json = json.load(f)
     elif SCENE_SELECTION_METHOD.startswith("iou"):
-        # action_unique = np.unique(action_list)
         IOU_MATRIX = np.load(MASK_DIR / "iou.npz")["arr_0"]
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
