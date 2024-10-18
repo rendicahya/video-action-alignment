@@ -19,11 +19,11 @@ from tqdm import tqdm
         readable=True,
         file_okay=False,
         dir_okay=True,
-        path_type=GPath,
+        path_type=Path,
     ),
 )
 def main(video_path):
-    ROOT = pathlib.Path.cwd()
+    ROOT = Path.cwd()
     OUT_FILE = video_path / "list.txt"
     N_VIDEOS = sum(1 for f in video_path.glob(f"**/*.*") if f.parent != video_path)
 
