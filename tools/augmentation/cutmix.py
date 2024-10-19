@@ -20,7 +20,13 @@ from python_video import frames_to_video
 
 
 def cutmix_fn(
-    actor_path, scene_path, action_mask, scene_replace, scene_mask, scene_transform
+    actor_path,
+    scene_path,
+    action_mask,
+    scene_replace,
+    scene_mask,
+    scene_transform,
+    soft_edge,
 ):
     if not actor_path.is_file() or not actor_path.exists():
         print("Not a file or not exists:", actor_path)
@@ -43,7 +49,9 @@ def cutmix_fn(
         scene_mask = cv2.resize(scene_mask, dsize=(w, h))
         scene_mask = np.moveaxis(scene_mask, -1, 0)
 
-    # action_mask = action_mask.astype(np.float16) / 255.0
+    if soft_edge:
+        actor_mask_normal = action_mask / 255.0
+        scene_mask_normal = scene_mask / 255.0
 
     for f, actor_frame in enumerate(actor_reader):
         if f == len(action_mask) - 1:
@@ -60,10 +68,11 @@ def cutmix_fn(
         if scene_replace in ("white", "black"):
             is_foreground = scene_mask[f % scene_n_frames] == 255
 
-        if scene_replace == "white":
-            scene_frame[is_foreground] = 255
-        elif scene_replace == "black":
-            scene_frame[is_foreground] = 0
+        if not soft_edge:
+            if scene_replace == "white":
+                scene_frame[is_foreground] = 255
+            elif scene_replace == "black":
+                scene_frame[is_foreground] = 0
 
         actor_mask = action_mask[f]
 
@@ -73,12 +82,23 @@ def cutmix_fn(
         if scene_transform and do_scene_transform:
             scene_frame = scene_transform["fn"](scene_frame)
 
-        actor = cv2.bitwise_and(actor_frame, actor_frame, mask=actor_mask)
-        scene = cv2.bitwise_and(scene_frame, scene_frame, mask=255 - actor_mask)
-        # mask_3 = np.repeat(np.expand_dims(actor_mask, axis=2), 3, axis=2)
-        # mixxx = actor_frame * mask_3 + scene_frame * (1.0 - mask_3)
+        if soft_edge:
+            actor_mask_3 = np.repeat(
+                np.expand_dims(actor_mask_normal[f], axis=2), 3, axis=2
+            )
+            scene_mask_3 = np.repeat(
+                np.expand_dims(1 - scene_mask_normal[f % scene_n_frames], axis=2),
+                3,
+                axis=2,
+            )
+            actor = (actor_frame * actor_mask_3).astype(np.uint8)
+            scene = (scene_frame * scene_mask_3 * (1 - actor_mask_3)).astype(np.uint8)
+        else:
+            actor = cv2.bitwise_and(actor_frame, actor_frame, mask=actor_mask)
+            scene = cv2.bitwise_and(scene_frame, scene_frame, mask=255 - actor_mask)
 
         mix = cv2.add(actor, scene)
+
         scene_frame = scene_reader.read()
 
         yield cv2.cvtColor(mix, cv2.COLOR_BGR2RGB)
@@ -93,7 +113,7 @@ def main():
     DATASET = conf.active.dataset
     DETECTOR = conf.active.detector
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
-    SMOOTH_EDGE_ENABLED = conf.cutmix.smooth_edge.enabled
+    SOFT_EDGE_ENABLED = conf.cutmix.soft_edge.enabled
     TEMPORAL_MORPHOLOGY_ENABLED = conf.cutmix.temporal_morphology.enabled
     SCENE_REPLACE = conf.cutmix.scene.replace
     SCENE_TRANSFORM = conf.cutmix.scene.transform
@@ -117,27 +137,14 @@ def main():
 
     if TEMPORAL_MORPHOLOGY_ENABLED:
         TEMPORAL_MORPHOLOGY_OP = conf.cutmix.temporal_morphology.op
+        MASK_DIR = add_suffix(MASK_DIR, "-" + TEMPORAL_MORPHOLOGY_OP)
+        VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-" + TEMPORAL_MORPHOLOGY_OP)
 
-        if TEMPORAL_MORPHOLOGY_OP == "dilation":
-            MASK_DIR = add_suffix(MASK_DIR, "-dilation")
-            VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-dilation")
-        elif TEMPORAL_MORPHOLOGY_OP == "closing":
-            MASK_DIR = add_suffix(MASK_DIR, "-closing")
-            VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-closing")
+        assert_that(TEMPORAL_MORPHOLOGY_OP).is_in("dilation", "opening", "closing")
 
-        # MASK_DIR = MASK_DIR.parent / (
-        #     "mask-closing" if TEMPORAL_MORPHOLOGY_OP == "closing" else "mask-dilation"
-        # )
-
-        # VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / (
-        #     f"{VIDEO_OUT_DIR.name}-closing"
-        #     if TEMPORAL_MORPHOLOGY == "closing"
-        #     else f"{VIDEO_OUT_DIR.name}-dilation"
-        # )
-
-    if SMOOTH_EDGE_ENABLED:
-        MASK_DIR = add_suffix(MASK_DIR, "-smooth")
-        VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-smooth")
+    if SOFT_EDGE_ENABLED:
+        MASK_DIR = add_suffix(MASK_DIR, "-soft")
+        VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-soft")
 
     if SCENE_TRANSFORM == "hflip":
         scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
@@ -147,7 +154,6 @@ def main():
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
-    # print("Smooth edge:", SMOOTH_EDGE_ENABLED)
     # print("Temporal morphology:", TEMPORAL_MORPHOLOGY)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
@@ -315,6 +321,7 @@ def main():
                     SCENE_REPLACE,
                     scene_mask,
                     scene_transform,
+                    SOFT_EDGE_ENABLED,
                 )
 
                 if out_frames:
