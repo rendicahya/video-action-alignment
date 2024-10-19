@@ -1,6 +1,6 @@
 {
   "active": {
-    "dataset": "kinetics100",
+    "dataset": "hmdb51",
     "random_seed": 0,
     "detector": "yolov8-coco",
     "max_workers": 8
@@ -54,12 +54,17 @@
     }
   },
   "cutmix": {
-    "smooth_edge": false,
     "multiplication": 10,
     "scene": {
       "replace": "black",
       "transform": "notransform",
-      "selection": { "method": "area", "tolerance": 0.1 }
+      "selection": { "method": "random", "tolerance": 0.1 }
+    },
+    "smooth_edge": { "enabled": false, "kernel_size": 49 },
+    "temporal_morphology": {
+      "enabled": true,
+      "op": "opening",
+      "length": 9
     }
   }
 }
