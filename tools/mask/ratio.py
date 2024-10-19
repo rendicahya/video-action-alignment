@@ -16,7 +16,6 @@ from config import settings as conf
 
 def calc_ratio(path):
     mask = np.load(path)["arr_0"]
-    # ratio = np.count_nonzero(mask) / mask.size
     ratio = np.sum(mask / 255) / mask.size
 
     return path.stem, round(ratio, 4)
