@@ -43,6 +43,8 @@ def cutmix_fn(
         scene_mask = cv2.resize(scene_mask, dsize=(w, h))
         scene_mask = np.moveaxis(scene_mask, -1, 0)
 
+    # action_mask = action_mask.astype(np.float16) / 255.0
+
     for f, actor_frame in enumerate(actor_reader):
         if f == len(action_mask) - 1:
             return
@@ -73,6 +75,8 @@ def cutmix_fn(
 
         actor = cv2.bitwise_and(actor_frame, actor_frame, mask=actor_mask)
         scene = cv2.bitwise_and(scene_frame, scene_frame, mask=255 - actor_mask)
+        # mask_3 = np.repeat(np.expand_dims(actor_mask, axis=2), 3, axis=2)
+        # mixxx = actor_frame * mask_3 + scene_frame * (1.0 - mask_3)
 
         mix = cv2.add(actor, scene)
         scene_frame = scene_reader.read()
@@ -89,8 +93,8 @@ def main():
     DATASET = conf.active.dataset
     DETECTOR = conf.active.detector
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
-    SMOOTH_EDGE = conf.cutmix.smooth_edge.enabled
-    TEMPORAL_MORPHOLOGY = conf.cutmix.temporal_morphology.op
+    SMOOTH_EDGE_ENABLED = conf.cutmix.smooth_edge.enabled
+    TEMPORAL_MORPHOLOGY_ENABLED = conf.cutmix.temporal_morphology.enabled
     SCENE_REPLACE = conf.cutmix.scene.replace
     SCENE_TRANSFORM = conf.cutmix.scene.transform
     SCENE_SELECTION_METHOD = conf.cutmix.scene.selection.method
@@ -111,18 +115,27 @@ def main():
         / SCENE_SELECTION_METHOD
     )
 
-    if TEMPORAL_MORPHOLOGY != "noop":
-        MASK_DIR = MASK_DIR.parent / (
-            "mask-closing" if TEMPORAL_MORPHOLOGY == "closing" else "mask-dilation"
-        )
+    if TEMPORAL_MORPHOLOGY_ENABLED:
+        TEMPORAL_MORPHOLOGY_OP = conf.cutmix.temporal_morphology.op
 
-        VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / (
-            f"{VIDEO_OUT_DIR.name}-closing"
-            if TEMPORAL_MORPHOLOGY == "closing"
-            else f"{VIDEO_OUT_DIR.name}-dilation"
-        )
+        if TEMPORAL_MORPHOLOGY_OP == "dilation":
+            MASK_DIR = add_suffix(MASK_DIR, "-dilation")
+            VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-dilation")
+        elif TEMPORAL_MORPHOLOGY_OP == "closing":
+            MASK_DIR = add_suffix(MASK_DIR, "-closing")
+            VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-closing")
 
-    if SMOOTH_EDGE:
+        # MASK_DIR = MASK_DIR.parent / (
+        #     "mask-closing" if TEMPORAL_MORPHOLOGY_OP == "closing" else "mask-dilation"
+        # )
+
+        # VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / (
+        #     f"{VIDEO_OUT_DIR.name}-closing"
+        #     if TEMPORAL_MORPHOLOGY == "closing"
+        #     else f"{VIDEO_OUT_DIR.name}-dilation"
+        # )
+
+    if SMOOTH_EDGE_ENABLED:
         MASK_DIR = add_suffix(MASK_DIR, "-smooth")
         VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-smooth")
 
@@ -134,8 +147,8 @@ def main():
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
-    # print("Smooth edge:", SMOOTH_EDGE)
-    print("Temporal morphology:", TEMPORAL_MORPHOLOGY)
+    # print("Smooth edge:", SMOOTH_EDGE_ENABLED)
+    # print("Temporal morphology:", TEMPORAL_MORPHOLOGY)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
     print("Output:", VIDEO_OUT_DIR.relative_to(ROOT))
