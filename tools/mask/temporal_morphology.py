@@ -21,8 +21,8 @@ def main():
     DETECTOR = conf.active.DETECTOR
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
-    MORPHOLOGY_OP = conf.temporal_morphology.op
-    MORPHOLOGY_LENGTH = conf.temporal_morphology.length
+    MORPHOLOGY_OP = conf.cutmix.temporal_morphology.op
+    MORPHOLOGY_LENGTH = conf.cutmix.temporal_morphology.length
     OUT_DIR = MASK_DIR.parent / (
         "mask-dilation" if MORPHOLOGY_OP == "dilation" else "mask-closing"
     )
