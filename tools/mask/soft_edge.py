@@ -20,9 +20,9 @@ def main():
     N_VIDEOS = conf.datasets[DATASET].n_videos
     DETECTOR = conf.active.DETECTOR
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
-    KERNEL_SIZE = conf.cutmix.smooth_edge.kernel_size
+    KERNEL_SIZE = conf.cutmix.soft_edge.kernel_size
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
-    OUT_DIR = MASK_DIR.parent / "mask-smooth"
+    OUT_DIR = MASK_DIR.parent / "mask-soft"
 
     print("Input:", MASK_DIR.relative_to(ROOT))
     print("Output:", OUT_DIR.relative_to(ROOT))
@@ -36,15 +36,15 @@ def main():
         if file.parent == MASK_DIR:
             continue
 
-        mask = np.load(file)["arr_0"].astype(np.float32)
-        smooth = np.stack(
+        mask = np.load(file)["arr_0"]
+        soft = np.stack(
             [cv2.GaussianBlur(frame, (KERNEL_SIZE, KERNEL_SIZE), 0) for frame in mask]
         )
         action = file.parent.name
         out_path = OUT_DIR / action / f"{file.stem}.npz"
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(out_path, smooth)
+        np.savez_compressed(out_path, soft)
 
 
 if __name__ == "__main__":
