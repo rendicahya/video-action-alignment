@@ -7,11 +7,15 @@ sys.path.append(".")
 from pathlib import Path
 
 import click
-from scipy.ndimage import binary_closing, binary_dilation
+from scipy.ndimage import binary_closing, binary_dilation, binary_opening
 from tqdm import tqdm
 
 from assertpy.assertpy import assert_that
 from config import settings as conf
+
+
+def add_suffix(path: Path, suffix: str):
+    return path.parent / (path.stem + suffix)
 
 
 def main():
@@ -23,9 +27,7 @@ def main():
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
     MORPHOLOGY_OP = conf.cutmix.temporal_morphology.op
     MORPHOLOGY_LENGTH = conf.cutmix.temporal_morphology.length
-    OUT_DIR = MASK_DIR.parent / (
-        "mask-dilation" if MORPHOLOGY_OP == "dilation" else "mask-closing"
-    )
+    OUT_DIR = add_suffix(MASK_DIR, "-" + MORPHOLOGY_OP)
 
     print("Operation:", MORPHOLOGY_OP)
     print("Input:", MASK_DIR.relative_to(ROOT))
@@ -34,17 +36,21 @@ def main():
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
 
-    assert_that(MORPHOLOGY_OP).is_in("dilation", "closing")
+    assert_that(MORPHOLOGY_OP).is_in("dilation", "opening", "closing")
 
     kernel = np.ones((MORPHOLOGY_LENGTH, 1, 1))
-    morphology_fn = binary_dilation if MORPHOLOGY_OP == "dilation" else binary_closing
+    morphology_fn = {
+        "dilation": binary_dilation,
+        "opening": binary_opening,
+        "closing": binary_closing,
+    }
 
     for file in tqdm(MASK_DIR.glob(f"**/*.npz"), total=N_VIDEOS, dynamic_ncols=True):
         if file.parent == MASK_DIR:
             continue
 
         mask = np.load(file)["arr_0"]
-        mask = morphology_fn(mask == 255, structure=kernel)
+        mask = morphology_fn[MORPHOLOGY_OP](mask == 255, structure=kernel)
         mask = mask.astype(np.uint8) * 255
         action = file.parent.name
         out_path = OUT_DIR / action / f"{file.stem}.npz"
