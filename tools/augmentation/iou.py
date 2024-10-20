@@ -2,9 +2,11 @@ import sys
 
 sys.path.append(".")
 
+import os
 from concurrent.futures import ThreadPoolExecutor
 from os.path import splitext
 from pathlib import Path
+from tempfile import mkdtemp
 
 import click
 import cv2
@@ -17,13 +19,8 @@ from config import settings as conf
 
 
 def compute_iou(file1, file2):
-    mask1 = (
-        mask_bank[file1] if file1 in mask_bank else np.load(path_bank[file1])["arr_0"]
-    )
-
-    mask2 = (
-        mask_bank[file2] if file2 in mask_bank else np.load(path_bank[file2])["arr_0"]
-    )
+    mask1 = mask_bank[file1] if file1 in mask_bank else memmap_bank[file1]
+    mask2 = mask_bank[file2] if file2 in mask_bank else memmap_bank[file2]
 
     mask2_len = len(mask2)
     iou_list = []
@@ -37,6 +34,7 @@ def compute_iou(file1, file2):
         intersection = np.logical_and(frame1, frame2).sum()
         union = np.logical_or(frame1, frame2).sum()
         iou = 0.0 if union == 0 else intersection / union
+
         iou_list.append(iou)
 
     return np.mean(iou_list)
@@ -53,7 +51,7 @@ IOU_PATH = MASK_DIR / "iou.npz"
 MAX_WORKERS = conf.active.max_workers
 RESIZE_FACTOR = conf.iou.resize[DATASET]
 mask_bank = {}
-path_bank = {}
+memmap_bank = {}
 file_list = []
 file2class_map = {}
 
@@ -66,7 +64,7 @@ assert_that(MASK_DIR).is_directory().is_readable()
 if not click.confirm("\nDo you want to continue?", show_default=True):
     exit("Aborted.")
 
-print("Loading masks to memory...")
+print("Loading masks into memory...")
 
 with open(DATASET_DIR / "list.txt") as f:
     lines = f.readlines()
@@ -80,7 +78,6 @@ with open(DATASET_DIR / "list.txt") as f:
         file2class_map[stem] = action
 
         mask_path = (MASK_DIR / action / filename).with_suffix(".npz")
-        path_bank[stem] = mask_path
         mask = np.load(mask_path)["arr_0"]
 
         if RESIZE_FACTOR < 1:
@@ -96,9 +93,10 @@ with open(DATASET_DIR / "list.txt") as f:
 
         if free_memory > 1:
             mask_bank[stem] = mask
-
-
-exit(0)
+        else:
+            tmp_file = os.path.join(mkdtemp(), f"{stem}.tmp")
+            fp = np.memmap(tmp_file, dtype=mask.dtype, mode="r", shape=mask.shape)
+            memmap_bank[stem] = mask
 
 if IOU_PATH.exists():
     data = np.load(IOU_PATH)["arr_0"]
@@ -125,7 +123,7 @@ for file1_idx, file1 in enumerate(file_list):
             jobs.items(),
             total=len(jobs),
             dynamic_ncols=True,
-            desc=f"({file1_idx+1}/{len(file_list)}) {len(mask_bank[file1])} fr",
+            desc=f"({file1_idx+1}/{len(file_list)}) {len(mask_bank[file1])} frames",
         ):
             data[i, j] = job.result()
 
