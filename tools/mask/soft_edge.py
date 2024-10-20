@@ -14,15 +14,25 @@ from assertpy.assertpy import assert_that
 from config import settings as conf
 
 
+def add_suffix(path: Path, suffix: str):
+    return path.parent / (path.stem + suffix)
+
+
 def main():
     ROOT = Path.cwd()
     DATASET = conf.active.DATASET
     N_VIDEOS = conf.datasets[DATASET].n_videos
     DETECTOR = conf.active.DETECTOR
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
+    TEMPORAL_MORPHOLOGY_ENABLED = conf.cutmix.temporal_morphology.enabled
     KERNEL_SIZE = conf.cutmix.soft_edge.kernel_size
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
-    OUT_DIR = MASK_DIR.parent / "mask-soft"
+
+    if TEMPORAL_MORPHOLOGY_ENABLED:
+        TEMPORAL_MORPHOLOGY_OP = conf.cutmix.temporal_morphology.op
+        MASK_DIR = add_suffix(MASK_DIR, "-" + TEMPORAL_MORPHOLOGY_OP)
+
+    OUT_DIR = add_suffix(MASK_DIR, "-soft")
 
     print("Input:", MASK_DIR.relative_to(ROOT))
     print("Output:", OUT_DIR.relative_to(ROOT))
