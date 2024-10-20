@@ -148,13 +148,12 @@ def main():
 
     if SCENE_TRANSFORM == "hflip":
         scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
-        VIDEO_OUT_DIR = VIDEO_OUT_DIR.parent / f"{VIDEO_OUT_DIR.name}-hflip"
+        VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-hflip")
     else:
         scene_transform = None
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
-    # print("Temporal morphology:", TEMPORAL_MORPHOLOGY)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
     print("Output:", VIDEO_OUT_DIR.relative_to(ROOT))
