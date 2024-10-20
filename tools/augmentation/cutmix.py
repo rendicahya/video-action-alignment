@@ -116,7 +116,8 @@ def main():
     SOFT_EDGE_ENABLED = conf.cutmix.soft_edge.enabled
     TEMPORAL_MORPHOLOGY_ENABLED = conf.cutmix.temporal_morphology.enabled
     SCENE_REPLACE = conf.cutmix.scene.replace
-    SCENE_TRANSFORM = conf.cutmix.scene.transform
+    SCENE_TRANSFORM_ENABLED = conf.cutmix.scene.transform.enabled
+    SCENE_TRANSFORM_OP = conf.cutmix.scene.transform.op
     SCENE_SELECTION_METHOD = conf.cutmix.scene.selection.method
     SCENE_SELECTION_TOLERANCE = conf.cutmix.scene.selection.tolerance
     MULTIPLICATION = conf.cutmix.multiplication
@@ -146,9 +147,10 @@ def main():
         MASK_DIR = add_suffix(MASK_DIR, "-soft")
         VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-soft")
 
-    if SCENE_TRANSFORM == "hflip":
-        scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
-        VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-hflip")
+    if SCENE_TRANSFORM_ENABLED:
+        if SCENE_TRANSFORM_OP == "hflip":
+            scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
+            VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-hflip")
     else:
         scene_transform = None
 
@@ -156,15 +158,17 @@ def main():
     print("Multiplication:", MULTIPLICATION)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
-    print("Output:", VIDEO_OUT_DIR.relative_to(ROOT))
-    print("Scene selection:", SCENE_SELECTION_METHOD)
-    print("Scene transform:", SCENE_TRANSFORM)
+    print(
+        "Output:",
+        VIDEO_OUT_DIR.relative_to(ROOT),
+        "(exists)" if VIDEO_OUT_DIR.exists() else "(not exists)",
+    )
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
     assert_that(SCENE_SELECTION_METHOD).is_in("random", "area", "iou", "iou-2")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
-    assert_that(SCENE_TRANSFORM).is_in("notransform", "hflip")
+    assert_that(SCENE_TRANSFORM_OP).is_in("hflip")
 
     if SCENE_SELECTION_METHOD.startswith("iou"):
         assert_that(MASK_DIR / "iou.npz").is_file().is_readable()

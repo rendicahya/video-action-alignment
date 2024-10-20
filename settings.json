@@ -1,6 +1,6 @@
 {
   "active": {
-    "dataset": "hmdb51",
+    "dataset": "ucf101",
     "random_seed": 0,
     "detector": "yolov8-coco",
     "max_workers": 8
@@ -57,10 +57,13 @@
     "multiplication": 10,
     "scene": {
       "replace": "black",
-      "transform": "notransform",
-      "selection": { "method": "random", "tolerance": 0.1 }
+      "selection": { "method": "random", "tolerance": 0.1 },
+      "transform": {
+        "enabled": false,
+        "op": "hflip"
+      }
     },
-    "smooth_edge": { "enabled": false, "kernel_size": 49 },
+    "soft_edge": { "enabled": false, "kernel_size": 35 },
     "temporal_morphology": {
       "enabled": true,
       "op": "opening",
