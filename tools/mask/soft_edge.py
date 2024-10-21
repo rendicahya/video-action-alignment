@@ -35,7 +35,11 @@ def main():
     OUT_DIR = add_suffix(MASK_DIR, "-soft")
 
     print("Input:", MASK_DIR.relative_to(ROOT))
-    print("Output:", OUT_DIR.relative_to(ROOT))
+    print(
+        "Output:",
+        OUT_DIR.relative_to(ROOT),
+        "(exists)" if OUT_DIR.exists() else "(not exists)",
+    )
 
     assert_that(MASK_DIR).is_directory().exists()
 
