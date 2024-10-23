@@ -120,7 +120,6 @@ def main():
     SCENE_TRANSFORM_ENABLED = conf.cutmix.scene.transform.enabled
     SCENE_TRANSFORM_OP = conf.cutmix.scene.transform.op
     SCENE_SELECTION_METHOD = conf.cutmix.scene.selection.method
-    SCENE_SELECTION_TOLERANCE = conf.cutmix.scene.selection.tolerance
     MULTIPLICATION = conf.cutmix.multiplication
     EXT = conf.datasets[DATASET].ext
     N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
@@ -167,20 +166,17 @@ def main():
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(SCENE_SELECTION_METHOD).is_in("random", "area", "iou", "iou-2")
+    assert_that(SCENE_SELECTION_METHOD).is_in("random", "iou-1", "iou-10")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
     assert_that(SCENE_TRANSFORM_OP).is_in("hflip")
-
-    if SCENE_SELECTION_METHOD.startswith("iou"):
-        assert_that(MASK_DIR / "iou.npz").is_file().is_readable()
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
 
     random.seed(RANDOM_SEED)
 
-    action2scenes_dict = defaultdict(list)
-    scene2action_dict = {}
+    action2scenes = defaultdict(list)
+    scene2action = {}
     action_list = np.zeros(N_VIDEOS, np.uint8)
     scene_transform_rand = random.Random()
     video_list = []
@@ -193,22 +189,21 @@ def main():
             stem = os.path.splitext(filename)[0]
 
             if SCENE_SELECTION_METHOD == "random":
-                action2scenes_dict[action].append(stem)
-            elif SCENE_SELECTION_METHOD == "area":
-                scene2action_dict[stem] = action
+                action2scenes[action].append(stem)
             elif SCENE_SELECTION_METHOD.startswith("iou"):
-                scene2action_dict[stem] = action
+                scene2action[stem] = action
                 action_list[i] = int(action_idx)
                 video_list.append(stem)
 
                 if action not in action_name2idx:
                     action_name2idx[action] = int(action_idx)
 
-    if SCENE_SELECTION_METHOD == "area":
-        with open(MASK_DIR / "ratio.json") as f:
-            ratio_json = json.load(f)
-    elif SCENE_SELECTION_METHOD.startswith("iou"):
-        IOU_MATRIX = np.load(MASK_DIR / "iou.npz")["arr_0"]
+    if SCENE_SELECTION_METHOD.startswith("iou"):
+        IOU_MATRIX_PATH = MASK_DIR.parent / "mask/iou.npz"
+
+        assert_that(IOU_MATRIX_PATH).is_file().is_readable()
+
+        IOU_MATRIX = np.load(IOU_MATRIX_PATH)["arr_0"]
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
@@ -227,11 +222,7 @@ def main():
             action_mask = np.load(video_mask_path)["arr_0"]
 
             if SCENE_SELECTION_METHOD == "random":
-                scene_class_options = [
-                    s for s in action2scenes_dict.keys() if s != action
-                ]
-            elif SCENE_SELECTION_METHOD == "area":
-                action_mask_ratio = np.count_nonzero(action_mask) / action_mask.size
+                scene_class_options = [s for s in action2scenes.keys() if s != action]
             elif SCENE_SELECTION_METHOD.startswith("iou"):
                 iou_row = IOU_MATRIX[file_idx][file_idx:]
                 iou_col = IOU_MATRIX[:, file_idx][:file_idx]
@@ -241,36 +232,16 @@ def main():
             i = 0
 
             while i < MULTIPLICATION:
-                bar.set_description(f"{file.stem[:40]} ({i+1}/{MULTIPLICATION})")
+                bar.set_description(f"({i+1}/{MULTIPLICATION})")
 
                 if SCENE_SELECTION_METHOD == "random":
                     scene_class = random.choice(scene_class_options)
-                    scene_options = action2scenes_dict[scene_class]
+                    scene_options = action2scenes[scene_class]
                     scene = random.choice(scene_options)
 
                     scene_class_options.remove(scene_class)
 
-                elif SCENE_SELECTION_METHOD == "area":
-                    mask_ratio_lower = action_mask_ratio * (
-                        1 - SCENE_SELECTION_TOLERANCE
-                    )
-                    mask_ratio_upper = action_mask_ratio * (
-                        1 + SCENE_SELECTION_TOLERANCE
-                    )
-                    scene_options = [
-                        stem
-                        for stem, ratio in ratio_json.items()
-                        if mask_ratio_lower < ratio < mask_ratio_upper
-                        and scene2action_dict[stem] != action
-                    ]
-
-                    if len(scene_options) <= 1:
-                        break
-
-                    scene = random.choice(scene_options)
-                    scene_class = scene2action_dict[scene]
-
-                elif SCENE_SELECTION_METHOD == "iou":
+                elif SCENE_SELECTION_METHOD == "iou-1":
                     used_videos = np.where(np.isin(action_list, used_actions))
                     sort_other_actions = np.setdiff1d(
                         sort_all_actions, used_videos, assume_unique=True
@@ -278,12 +249,12 @@ def main():
                     # Get scene with max IoU
                     scene_id = sort_other_actions[i]
                     scene = video_list[scene_id]
-                    scene_class = scene2action_dict[scene]
+                    scene_class = scene2action[scene]
                     scene_class_idx = action_name2idx[scene_class]
 
                     used_actions.append(scene_class_idx)
 
-                elif SCENE_SELECTION_METHOD == "iou-2":
+                elif SCENE_SELECTION_METHOD == "iou-10":
                     used_videos = np.where(np.isin(action_list, used_actions))
                     sort_other_actions = np.setdiff1d(
                         sort_all_actions, used_videos, assume_unique=True
@@ -291,7 +262,7 @@ def main():
                     # Get a random scene from top-10 IoU
                     scene_id = random.choice(sort_other_actions[:10])
                     scene = video_list[scene_id]
-                    scene_class = scene2action_dict[scene]
+                    scene_class = scene2action[scene]
                     scene_class_idx = action_name2idx[scene_class]
 
                     used_actions.append(scene_class_idx)
