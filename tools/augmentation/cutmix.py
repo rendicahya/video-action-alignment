@@ -27,6 +27,7 @@ def cutmix_fn(
     scene_mask,
     scene_transform,
     soft_edge,
+    scene_transform_rand,
 ):
     if not actor_path.is_file() or not actor_path.exists():
         print("Not a file or not exists:", actor_path)
@@ -42,7 +43,7 @@ def cutmix_fn(
     blank = np.zeros((h, w), np.uint8)
 
     if scene_transform:
-        do_scene_transform = random.random() <= scene_transform["prob"]
+        do_scene_transform = scene_transform_rand.random() <= scene_transform["prob"]
 
     if scene_mask.shape[:2] != (h, w) and scene_replace in ("white", "black"):
         scene_mask = np.moveaxis(scene_mask, 0, -1)
@@ -181,6 +182,7 @@ def main():
     action2scenes_dict = defaultdict(list)
     scene2action_dict = {}
     action_list = np.zeros(N_VIDEOS, np.uint8)
+    scene_transform_rand = random.Random()
     video_list = []
     action_name2idx = {}
 
@@ -325,6 +327,7 @@ def main():
                     scene_mask,
                     scene_transform,
                     SOFT_EDGE_ENABLED,
+                    scene_transform_rand,
                 )
 
                 if out_frames:
