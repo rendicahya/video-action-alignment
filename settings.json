@@ -1,6 +1,6 @@
 {
   "active": {
-    "dataset": "ucf101",
+    "dataset": "kinetics100",
     "random_seed": 0,
     "detector": "yolov8-coco",
     "max_workers": 8
@@ -57,7 +57,7 @@
     "multiplication": 10,
     "scene": {
       "replace": "black",
-      "selection": { "method": "random", "tolerance": 0.1 },
+      "selection": { "method": "iou-1" },
       "transform": {
         "enabled": false,
         "op": "hflip"
@@ -66,7 +66,7 @@
     "soft_edge": { "enabled": false, "kernel_size": 35 },
     "temporal_morphology": {
       "enabled": true,
-      "op": "opening",
+      "op": "closing",
       "length": 9
     }
   }
