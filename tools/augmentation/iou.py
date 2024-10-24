@@ -105,7 +105,7 @@ else:
     data = np.zeros((N_FILES, N_FILES), np.float16)
     START_IDX = 0
 
-print(f"Working with {MAX_WORKERS} max workers...")
+print(f"Working with {MAX_WORKERS} max workers from row #{START_IDX}...")
 
 for file1_idx, file1 in enumerate(file_list):
     if file1_idx < START_IDX:
