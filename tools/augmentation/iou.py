@@ -55,9 +55,18 @@ memmap_bank = {}
 file_list = []
 file2class_map = {}
 
+if IOU_PATH.exists():
+    data = np.load(IOU_PATH)["arr_0"]
+    START_IDX = np.where(np.all(data == 0, axis=1))[0][0]
+else:
+    data = np.zeros((N_FILES, N_FILES), np.float16)
+    START_IDX = 0
+
 print("Input:", MASK_DIR.relative_to(ROOT))
 print("n videos:", N_FILES)
 print("Resize factor:", RESIZE_FACTOR)
+print("Max workers:", MAX_WORKERS)
+print("Starting row:", START_IDX)
 
 assert_that(MASK_DIR).is_directory().is_readable()
 
@@ -98,13 +107,6 @@ with open(DATASET_DIR / "list.txt") as f:
             fp = np.memmap(tmp_file, dtype=mask.dtype, mode="r", shape=mask.shape)
             memmap_bank[stem] = mask
 
-if IOU_PATH.exists():
-    data = np.load(IOU_PATH)["arr_0"]
-    START_IDX = np.where(np.all(data == 0, axis=1))[0][0]
-else:
-    data = np.zeros((N_FILES, N_FILES), np.float16)
-    START_IDX = 0
-
 print(f"Working with {MAX_WORKERS} max workers from row #{START_IDX}...")
 
 for file1_idx, file1 in enumerate(file_list):
@@ -127,8 +129,9 @@ for file1_idx, file1 in enumerate(file_list):
         ):
             data[i, j] = job.result()
 
-    if file1_idx % 10 == 0:
-        print("Saving checkpoint...")
+    if file1_idx + 1 % 10 == 0:
+        print("Saving matrix...", end=" ")
         np.savez_compressed(IOU_PATH, data)
+        print("Saved.")
 
 np.savez_compressed(IOU_PATH, data)
