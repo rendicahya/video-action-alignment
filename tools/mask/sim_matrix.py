@@ -21,8 +21,8 @@ from config import settings as conf
 
 
 def compute_sim(file1, file2, method):
-    mask1 = mask_bank[file1] if file1 in mask_bank else memmap_bank[file1]
-    mask2 = mask_bank[file2] if file2 in mask_bank else memmap_bank[file2]
+    mask1 = mask_bank[file1]
+    mask2 = mask_bank[file2]
 
     mask2_len = len(mask2)
     score_list = []
@@ -76,7 +76,6 @@ RESIZE_FACTOR = conf.mask_sim.resize[DATASET]
 MIN_MEMORY = conf.mask_sim.min_memory
 PACK_TEMPORAL = conf.mask_sim.pack_temporal
 mask_bank = {}
-memmap_bank = {}
 file_list = []
 stem2action = {}
 
@@ -131,14 +130,20 @@ with open(DATASET_DIR / "list.txt") as f:
 
         free_memory = psutil.virtual_memory().available / (1024**3)
 
-        if free_memory > MIN_MEMORY:
-            mask_bank[stem] = mask
-        else:
-            tmp_file = os.path.join(mkdtemp(), f"{stem}.tmp")
-            fp = np.memmap(tmp_file, dtype=mask.dtype, mode="r", shape=mask.shape)
-            memmap_bank[stem] = mask
+        if free_memory < MIN_MEMORY:
+            print("Memory limit exceeded.")
+            exit()
+
+        mask_bank[stem] = mask
 
 print(f"Working with {MAX_WORKERS} max workers...")
+
+bar = tqdm(
+    total=len(file_list),
+    dynamic_ncols=True,
+)
+
+bar.update(START_IDX)
 
 for file1_idx, file1 in enumerate(file_list):
     if file1_idx < START_IDX:
@@ -154,17 +159,13 @@ for file1_idx, file1 in enumerate(file_list):
                 compute_sim, file1, file2, METHOD
             )
 
-        for (i, j), job in tqdm(
-            jobs.items(),
-            total=len(jobs),
-            dynamic_ncols=True,
-            desc=f"({file1_idx+1}/{len(file_list)}) {len(mask_bank[file1])} frames",
-        ):
+        for (i, j), job in jobs.items():
             data[i, j] = job.result()
 
     if (file1_idx + 1) % 10 == 0:
-        print("Saving matrix...", end=" ")
+        bar.set_description("Saving matrix...")
         np.savez_compressed(OUT_PATH, data)
-        print("Saved.")
+
+    bar.update(1)
 
 np.savez_compressed(OUT_PATH, data)
