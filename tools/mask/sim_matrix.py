@@ -20,24 +20,29 @@ from assertpy.assertpy import assert_that
 from config import settings as conf
 
 
-def compute_sim(file1, file2, method):
-    mask1 = mask_bank[file1]
-    mask2 = mask_bank[file2]
+def compute_sim(fg_file, bg_file, method):
+    fg_mask = mask_bank[fg_file]
+    bg_mask = mask_bank[bg_file]
 
-    mask2_len = len(mask2)
+    bg_len = len(bg_mask)
     score_list = []
 
-    for f, frame1 in enumerate(mask1):
-        frame2 = mask2[f % mask2_len]
+    for f, fg_frame in enumerate(fg_mask):
+        bg_frame = bg_mask[f % bg_len]
 
-        if frame1.shape != frame2.shape:
-            frame2 = cv2.resize(frame2, frame1.shape[::-1])
+        if fg_frame.shape != bg_frame.shape:
+            bg_frame = cv2.resize(bg_frame, fg_frame.shape[::-1])
 
-        intersection = np.logical_and(frame1, frame2).sum()
-        union = np.logical_or(frame1, frame2).sum()
-        iou = 0.0 if union == 0 else intersection / union
+        intersection = np.logical_and(fg_frame, bg_frame).sum()
 
-        score_list.append(iou)
+        if method == "iou":
+            union = np.logical_or(fg_frame, bg_frame).sum()
+            score = 0.0 if union == 0 else intersection / union
+        elif method == "bao":
+            bg_area = bg_frame.sum()
+            score = 0.0 if bg_area == 0 else intersection / bg_area
+
+        score_list.append(score)
 
     return np.mean(score_list)
 
@@ -80,7 +85,7 @@ file_list = []
 stem2action = {}
 
 assert_that(MASK_DIR).is_directory().is_readable()
-assert_that(METHOD).is_in("iou", "fou")
+assert_that(METHOD).is_in("iou", "bao")
 
 if OUT_PATH.exists():
     data = np.load(OUT_PATH)["arr_0"]
@@ -145,26 +150,29 @@ bar = tqdm(
 
 bar.update(START_IDX)
 
-for file1_idx, file1 in enumerate(file_list):
-    if file1_idx < START_IDX:
+for fg_idx, fg_file in enumerate(file_list):
+    if fg_idx < START_IDX:
         continue
 
-    file2_list = file_list[file1_idx + 1 :]
+    bg_file_list = file_list[fg_idx + 1 :]
     jobs = {}
 
+    bar.set_description(fg_file[:30])
+
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for file2 in file2_list:
-            file2_idx = file_list.index(file2)
-            jobs[(file1_idx, file2_idx)] = executor.submit(
-                compute_sim, file1, file2, METHOD
+        for bg_file in bg_file_list:
+            bg_idx = file_list.index(bg_file)
+            jobs[(fg_idx, bg_idx)] = executor.submit(
+                compute_sim, fg_file, bg_file, METHOD
             )
 
-        for (i, j), job in jobs.items():
-            data[i, j] = job.result()
+        for (f, b), job in jobs.items():
+            data[f, b] = job.result()
 
-    if (file1_idx + 1) % 10 == 0:
+    if (fg_idx + 1) % 10 == 0:
         bar.set_description("Saving matrix...")
         np.savez_compressed(OUT_PATH, data)
+        bar.set_description("Saved")
 
     bar.update(1)
 
