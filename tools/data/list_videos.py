@@ -28,7 +28,11 @@ def main(video_path):
     N_VIDEOS = sum(1 for f in video_path.glob(f"**/*.*") if f.parent != video_path)
 
     print("Input:", video_path.relative_to(ROOT))
-    print("Output:", OUT_FILE.relative_to(ROOT))
+    print(
+        "Output:",
+        OUT_FILE.relative_to(ROOT),
+        "(exists)" if VIDEO_OUT_DIR.exists() else "(not exists)",
+    )
     print("Σ videos:", N_VIDEOS)
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
