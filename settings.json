@@ -24,6 +24,7 @@
     "kinetics100": {
       "path": "data/kinetics100/videos",
       "ext": ".mp4",
+      "train_ratio": 0.75,
       "split": 1,
       "n_videos": 9999,
       "n_classes": 100
@@ -46,27 +47,42 @@
       "human_class": [0]
     }
   },
-  "iou": {
+  "mask_sim": {
+    "method": "bao",
+    "scheduling": {
+      "enabled": false,
+      "min_cpu": 10,
+      "min_ram": 10,
+      "time": {
+        "start": 16,
+        "stop": 8
+      }
+    },
+    "min_memory": 5,
+    "pack_temporal": {
+      "enabled": true,
+      "length": 5
+    },
     "resize": {
-      "ucf101": 0.75,
+      "ucf101": 1.0,
       "hmdb51": 1.0,
-      "kinetics100": 0.6
+      "kinetics100": 1.0
     }
   },
   "cutmix": {
     "multiplication": 10,
     "scene": {
       "replace": "black",
-      "selection": { "method": "iou-1" },
+      "selection": { "method": "random" },
       "transform": {
         "enabled": false,
         "op": "hflip"
       }
     },
-    "soft_edge": { "enabled": false, "kernel_size": 35 },
+    "soft_edge": { "enabled": true, "kernel_size": 35 },
     "temporal_morphology": {
-      "enabled": true,
-      "op": "closing",
+      "enabled": false,
+      "op": "dilation",
       "length": 9
     }
   }
