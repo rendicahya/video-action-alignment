@@ -39,7 +39,7 @@ def compute_sim(fg_file, bg_file, method):
             union = np.logical_or(fg_frame, bg_frame).sum()
             score = 0.0 if union == 0 else intersection / union
         elif method == "bao":
-            bg_area = bg_frame.sum()
+            bg_area = (bg_frame == 255).sum()
             score = 0.0 if bg_area == 0 else intersection / bg_area
 
         score_list.append(score)
