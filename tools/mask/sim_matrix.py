@@ -109,37 +109,34 @@ print("Loading masks into memory...")
 
 with open(DATASET_DIR / "list.txt") as f:
     lines = f.readlines()
-    lines.reverse()
 
-    for line in tqdm(lines, total=N_FILES, dynamic_ncols=True):
-        action, filename = line.split()[0].split("/")
-        stem = splitext(filename)[0]
+for line in tqdm(lines, total=N_FILES, dynamic_ncols=True):
+    action, filename = line.split()[0].split("/")
+    stem = splitext(filename)[0]
 
-        file_list.append(stem)
-        stem2action[stem] = action
+    file_list.append(stem)
+    stem2action[stem] = action
 
-        mask_path = (MASK_DIR / action / filename).with_suffix(".npz")
-        mask = np.load(mask_path)["arr_0"]
+    mask_path = (MASK_DIR / action / filename).with_suffix(".npz")
+    mask = np.load(mask_path)["arr_0"]
 
-        if RESIZE_FACTOR < 1:
-            height, width = mask.shape[1:]
-            new_width = int(width * RESIZE_FACTOR)
-            new_height = int(height * RESIZE_FACTOR)
+    if RESIZE_FACTOR < 1:
+        height, width = mask.shape[1:]
+        new_width = int(width * RESIZE_FACTOR)
+        new_height = int(height * RESIZE_FACTOR)
 
-            mask = np.stack(
-                [cv2.resize(layer, (new_width, new_height)) for layer in mask]
-            )
+        mask = np.stack([cv2.resize(layer, (new_width, new_height)) for layer in mask])
 
-        if PACK_TEMPORAL.enabled:
-            mask = pack_temporal(mask)
+    if PACK_TEMPORAL.enabled:
+        mask = pack_temporal(mask)
 
-        free_memory = psutil.virtual_memory().available / (1024**3)
+    free_memory = psutil.virtual_memory().available / (1024**3)
 
-        if free_memory < MIN_MEMORY:
-            print("Memory limit exceeded.")
-            exit()
+    if free_memory < MIN_MEMORY:
+        print("Memory limit exceeded.")
+        exit()
 
-        mask_bank[stem] = mask
+    mask_bank[stem] = mask
 
 print(f"Working with {MAX_WORKERS} max workers...")
 
@@ -172,8 +169,8 @@ for fg_idx, fg_file in enumerate(file_list):
     if (fg_idx + 1) % 10 == 0:
         bar.set_description("Saving matrix...")
         np.savez_compressed(OUT_PATH, data)
-        bar.set_description("Saved")
 
+    del mask_bank[fg_file]
     bar.update(1)
 
 np.savez_compressed(OUT_PATH, data)
