@@ -31,7 +31,7 @@ def main(video_path):
     print(
         "Output:",
         OUT_FILE.relative_to(ROOT),
-        "(exists)" if VIDEO_OUT_DIR.exists() else "(not exists)",
+        "(exists)" if OUT_FILE.exists() else "(not exists)",
     )
     print("Σ videos:", N_VIDEOS)
 
