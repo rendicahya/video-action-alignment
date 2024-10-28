@@ -42,7 +42,11 @@ def main(mask_path):
     data = {}
 
     print("Input:", mask_path.relative_to(ROOT))
-    print("Output:", OUT_PATH.relative_to(ROOT))
+    print(
+        "Output:",
+        OUT_PATH.relative_to(ROOT),
+        "(exists)" if OUT_PATH.exists() else "(not exists)",
+    )
     print("n videos:", N_FILES)
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
