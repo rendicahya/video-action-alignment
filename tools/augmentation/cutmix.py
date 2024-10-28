@@ -154,6 +154,17 @@ def main():
     else:
         scene_transform = None
 
+    if SCENE_SELECTION_METHOD in ("iou", "bao"):
+        MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION_METHOD}.npz"
+
+        assert_that(MATRIX_PATH).is_file().is_readable()
+
+        IOU_MATRIX = np.load(MATRIX_PATH)["arr_0"]
+        check_value = IOU_MATRIX[-2, -1]
+
+        assert_that(check_value).is_not_equal_to(0.0)
+        print("Scene selection:", SCENE_SELECTION_METHOD)
+
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
@@ -166,7 +177,7 @@ def main():
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(SCENE_SELECTION_METHOD).is_in("random", "iou-1", "iou-10")
+    assert_that(SCENE_SELECTION_METHOD).is_in("random", "iou", "bao")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
     assert_that(SCENE_TRANSFORM_OP).is_in("hflip")
 
@@ -190,20 +201,13 @@ def main():
 
             if SCENE_SELECTION_METHOD == "random":
                 action2scenes[action].append(stem)
-            elif SCENE_SELECTION_METHOD.startswith("iou"):
+            elif SCENE_SELECTION_METHOD in ("iou", "bao"):
                 scene2action[stem] = action
                 action_list[i] = int(action_idx)
                 video_list.append(stem)
 
                 if action not in action_name2idx:
                     action_name2idx[action] = int(action_idx)
-
-    if SCENE_SELECTION_METHOD.startswith("iou"):
-        IOU_MATRIX_PATH = MASK_DIR.parent / "mask/iou.npz"
-
-        assert_that(IOU_MATRIX_PATH).is_file().is_readable()
-
-        IOU_MATRIX = np.load(IOU_MATRIX_PATH)["arr_0"]
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
@@ -223,7 +227,7 @@ def main():
 
             if SCENE_SELECTION_METHOD == "random":
                 scene_class_options = [s for s in action2scenes.keys() if s != action]
-            elif SCENE_SELECTION_METHOD.startswith("iou"):
+            elif SCENE_SELECTION_METHOD in ("iou", "bao"):
                 iou_row = IOU_MATRIX[file_idx][file_idx:]
                 iou_col = IOU_MATRIX[:, file_idx][:file_idx]
                 iou_merge = np.concatenate((iou_col, iou_row))
@@ -241,7 +245,7 @@ def main():
 
                     scene_class_options.remove(scene_class)
 
-                elif SCENE_SELECTION_METHOD == "iou-1":
+                elif SCENE_SELECTION_METHOD in ("iou", "bao"):
                     used_videos = np.where(np.isin(action_list, used_actions))
                     sort_other_actions = np.setdiff1d(
                         sort_all_actions, used_videos, assume_unique=True
@@ -254,6 +258,7 @@ def main():
 
                     used_actions.append(scene_class_idx)
 
+                # Obsolete
                 elif SCENE_SELECTION_METHOD == "iou-10":
                     used_videos = np.where(np.isin(action_list, used_actions))
                     sort_other_actions = np.setdiff1d(
