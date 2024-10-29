@@ -154,17 +154,6 @@ def main():
     else:
         scene_transform = None
 
-    if SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
-        MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION_METHOD[:3]}.npz"
-
-        assert_that(MATRIX_PATH).is_file().is_readable()
-
-        MATRIX = np.load(MATRIX_PATH)["arr_0"]
-        check_value = MATRIX[-2, -1]
-
-        assert_that(check_value).is_not_equal_to(0.0)
-        print("Scene selection:", SCENE_SELECTION_METHOD)
-
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
     print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
@@ -175,9 +164,23 @@ def main():
         "(exists)" if VIDEO_OUT_DIR.exists() else "(not exists)",
     )
 
+    if SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
+        MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION_METHOD[:3]}.npz"
+
+        assert_that(MATRIX_PATH).is_file().is_readable()
+
+        MATRIX = np.load(MATRIX_PATH)["arr_0"]
+        check_value = MATRIX[-2, -1]
+
+        assert_that(check_value).is_not_equal_to(0.0)
+        print("Scene selection:", SCENE_SELECTION_METHOD)
+        print("Matrix check cell:", check_value)
+
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(SCENE_SELECTION_METHOD).is_in("random", "iou", "iou-1", "bao", "bao-1")
+    assert_that(SCENE_SELECTION_METHOD).is_in(
+        "random", "iou-v", "iou-m", "bao-v", "bao-m"
+    )
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
     assert_that(SCENE_TRANSFORM_OP).is_in("hflip")
 
@@ -201,7 +204,7 @@ def main():
 
             if SCENE_SELECTION_METHOD == "random":
                 action2scenes[action].append(stem)
-            elif SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
+            elif SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
                 scene2action[stem] = action
                 action_list[i] = int(action_idx)
                 idx2stem.append(stem)
@@ -230,7 +233,7 @@ def main():
 
         if SCENE_SELECTION_METHOD == "random":
             scene_class_options = [s for s in action2scenes.keys() if s != action]
-        elif SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
+        elif SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
             iou_row = MATRIX[file_idx][file_idx:]
             iou_col = MATRIX[:, file_idx][:file_idx]
             iou_merge = np.concatenate((iou_col, iou_row))
@@ -239,7 +242,7 @@ def main():
         i = 0
 
         while i < MULTIPLICATION:
-            bar.set_description(f"({i+1}/{MULTIPLICATION})")
+            bar.set_description(f"{file.stem} ({i+1}/{MULTIPLICATION})")
 
             if SCENE_SELECTION_METHOD == "random":
                 scene_class = random.choice(scene_class_options)
@@ -248,24 +251,30 @@ def main():
 
                 scene_class_options.remove(scene_class)
 
-            elif SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
+            elif SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
                 # Videos having the same action
                 same_action = np.where(np.isin(action_list, used_actions))
 
                 # Exclude from sorting
                 eligible = np.setdiff1d(all_options, same_action, assume_unique=True)
 
+                if SCENE_SELECTION_METHOD in ("iou-m", "bao-m"):
+                    eligible = np.setdiff1d(eligible, used_videos, assume_unique=True)
+
                 # Get scene with max score
                 scene_id = eligible[i]
                 scene = idx2stem[scene_id]
                 scene_class = scene2action[scene]
 
-                if SCENE_SELECTION_METHOD in ("iou", "bao"):
+                # V-variants: varying action class
+                if SCENE_SELECTION_METHOD in ("iou-v", "bao-v"):
                     scene_class_idx = action_name2idx[scene_class]
 
                     # Remember the action of the selected video
                     used_actions.append(scene_class_idx)
-                elif SCENE_SELECTION_METHOD in ("iou-1", "bao-1"):
+
+                # M-variants: max score without varying action class
+                elif SCENE_SELECTION_METHOD in ("iou-m", "bao-m"):
                     # Remember the selected video
                     used_videos.append(scene_id)
 
