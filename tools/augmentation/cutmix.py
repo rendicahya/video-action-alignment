@@ -19,6 +19,10 @@ from config import settings as conf
 from python_video import frames_to_video
 
 
+def add_suffix(path: Path, suffix: str):
+    return path.parent / (path.stem + suffix)
+
+
 def cutmix_fn(
     actor_path,
     scene_path,
@@ -105,10 +109,6 @@ def cutmix_fn(
         yield cv2.cvtColor(mix, cv2.COLOR_BGR2RGB)
 
 
-def add_suffix(path: Path, suffix: str):
-    return path.parent / (path.stem + suffix)
-
-
 def main():
     ROOT = Path.cwd()
     DATASET = conf.active.dataset
@@ -154,13 +154,13 @@ def main():
     else:
         scene_transform = None
 
-    if SCENE_SELECTION_METHOD in ("iou", "bao"):
-        MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION_METHOD}.npz"
+    if SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
+        MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION_METHOD[:3]}.npz"
 
         assert_that(MATRIX_PATH).is_file().is_readable()
 
-        IOU_MATRIX = np.load(MATRIX_PATH)["arr_0"]
-        check_value = IOU_MATRIX[-2, -1]
+        MATRIX = np.load(MATRIX_PATH)["arr_0"]
+        check_value = MATRIX[-2, -1]
 
         assert_that(check_value).is_not_equal_to(0.0)
         print("Scene selection:", SCENE_SELECTION_METHOD)
@@ -177,7 +177,7 @@ def main():
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(SCENE_SELECTION_METHOD).is_in("random", "iou", "bao")
+    assert_that(SCENE_SELECTION_METHOD).is_in("random", "iou", "iou-1", "bao", "bao-1")
     assert_that(SCENE_REPLACE).is_in("noop", "white", "black", "inpaint")
     assert_that(SCENE_TRANSFORM_OP).is_in("hflip")
 
@@ -190,7 +190,7 @@ def main():
     scene2action = {}
     action_list = np.zeros(N_VIDEOS, np.uint8)
     scene_transform_rand = random.Random()
-    video_list = []
+    idx2stem = []
     action_name2idx = {}
 
     with open(VIDEO_IN_DIR / "list.txt") as f:
@@ -201,10 +201,10 @@ def main():
 
             if SCENE_SELECTION_METHOD == "random":
                 action2scenes[action].append(stem)
-            elif SCENE_SELECTION_METHOD in ("iou", "bao"):
+            elif SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
                 scene2action[stem] = action
                 action_list[i] = int(action_idx)
-                video_list.append(stem)
+                idx2stem.append(stem)
 
                 if action not in action_name2idx:
                     action_name2idx[action] = int(action_idx)
@@ -213,116 +213,120 @@ def main():
     n_written = 0
 
     with open(VIDEO_IN_DIR / "list.txt") as f:
-        for file_idx, line in enumerate(f):
-            path, action_idx = line.split()
-            file = Path(VIDEO_IN_DIR / path)
-            action = file.parent.name
-            video_mask_path = (MASK_DIR / action / file.name).with_suffix(".npz")
-            used_actions = [int(action_idx)]
+        file_list = f.readlines()
 
-            if not video_mask_path.is_file() or not video_mask_path.exists():
-                continue
+    for file_idx, line in enumerate(file_list):
+        path, action_idx = line.split()
+        file = Path(VIDEO_IN_DIR / path)
+        action = file.parent.name
+        video_mask_path = (MASK_DIR / action / file.name).with_suffix(".npz")
+        used_actions = [int(action_idx)]
+        used_videos = [int(file_idx)]
 
-            action_mask = np.load(video_mask_path)["arr_0"]
+        if not video_mask_path.is_file() or not video_mask_path.exists():
+            continue
+
+        action_mask = np.load(video_mask_path)["arr_0"]
+
+        if SCENE_SELECTION_METHOD == "random":
+            scene_class_options = [s for s in action2scenes.keys() if s != action]
+        elif SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
+            iou_row = MATRIX[file_idx][file_idx:]
+            iou_col = MATRIX[:, file_idx][:file_idx]
+            iou_merge = np.concatenate((iou_col, iou_row))
+            all_options = np.argsort(iou_merge)[::-1]
+
+        i = 0
+
+        while i < MULTIPLICATION:
+            bar.set_description(f"({i+1}/{MULTIPLICATION})")
 
             if SCENE_SELECTION_METHOD == "random":
-                scene_class_options = [s for s in action2scenes.keys() if s != action]
-            elif SCENE_SELECTION_METHOD in ("iou", "bao"):
-                iou_row = IOU_MATRIX[file_idx][file_idx:]
-                iou_col = IOU_MATRIX[:, file_idx][:file_idx]
-                iou_merge = np.concatenate((iou_col, iou_row))
-                sort_all_actions = np.argsort(iou_merge)[::-1]
+                scene_class = random.choice(scene_class_options)
+                scene_options = action2scenes[scene_class]
+                scene = random.choice(scene_options)
 
-            i = 0
+                scene_class_options.remove(scene_class)
 
-            while i < MULTIPLICATION:
-                bar.set_description(f"({i+1}/{MULTIPLICATION})")
+            elif SCENE_SELECTION_METHOD in ("iou", "iou-1", "bao", "bao-1"):
+                # Videos having the same action
+                same_action = np.where(np.isin(action_list, used_actions))
 
-                if SCENE_SELECTION_METHOD == "random":
-                    scene_class = random.choice(scene_class_options)
-                    scene_options = action2scenes[scene_class]
-                    scene = random.choice(scene_options)
+                # Exclude from sorting
+                eligible = np.setdiff1d(all_options, same_action, assume_unique=True)
 
-                    scene_class_options.remove(scene_class)
+                # Get scene with max score
+                scene_id = eligible[i]
+                scene = idx2stem[scene_id]
+                scene_class = scene2action[scene]
 
-                elif SCENE_SELECTION_METHOD in ("iou", "bao"):
-                    used_videos = np.where(np.isin(action_list, used_actions))
-                    sort_other_actions = np.setdiff1d(
-                        sort_all_actions, used_videos, assume_unique=True
-                    )
-                    # Get scene with max IoU
-                    scene_id = sort_other_actions[i]
-                    scene = video_list[scene_id]
-                    scene_class = scene2action[scene]
+                if SCENE_SELECTION_METHOD in ("iou", "bao"):
                     scene_class_idx = action_name2idx[scene_class]
 
+                    # Remember the action of the selected video
                     used_actions.append(scene_class_idx)
+                elif SCENE_SELECTION_METHOD in ("iou-1", "bao-1"):
+                    # Remember the selected video
+                    used_videos.append(scene_id)
 
-                # Obsolete
-                elif SCENE_SELECTION_METHOD == "iou-10":
-                    used_videos = np.where(np.isin(action_list, used_actions))
-                    sort_other_actions = np.setdiff1d(
-                        sort_all_actions, used_videos, assume_unique=True
-                    )
-                    # Get a random scene from top-10 IoU
-                    scene_id = random.choice(sort_other_actions[:10])
-                    scene = video_list[scene_id]
-                    scene_class = scene2action[scene]
-                    scene_class_idx = action_name2idx[scene_class]
+            # Obsolete
+            elif SCENE_SELECTION_METHOD == "iou-10":
+                used_videos = np.where(np.isin(action_list, used_actions))
+                eligible = np.setdiff1d(all_options, used_videos, assume_unique=True)
+                # Get a random scene from top-10 IoU
+                scene_id = random.choice(eligible[:10])
+                scene = idx2stem[scene_id]
+                scene_class = scene2action[scene]
+                scene_class_idx = action_name2idx[scene_class]
 
-                    used_actions.append(scene_class_idx)
+                used_actions.append(scene_class_idx)
 
-                video_out_path = (
-                    VIDEO_OUT_DIR / action / f"{file.stem}-{i}-{scene_class}"
-                ).with_suffix(".mp4")
+            video_out_path = (
+                VIDEO_OUT_DIR / action / f"{file.stem}-{i}-{scene_class}"
+            ).with_suffix(".mp4")
 
-                if (
-                    video_out_path.exists()
-                    and mmcv.VideoReader(str(video_out_path)).frame_cnt > 0
-                ):
-                    bar.update(1)
-                    continue
+            if (
+                video_out_path.exists()
+                and mmcv.VideoReader(str(video_out_path)).frame_cnt > 0
+            ):
+                bar.update(1)
+                continue
 
-                if SCENE_REPLACE == "noop":
-                    scene_mask = None
-                else:
-                    scene_mask_path = (MASK_DIR / scene_class / scene).with_suffix(
-                        ".npz"
-                    )
-                    scene_mask = np.load(scene_mask_path)["arr_0"]
+            scene_mask_path = (MASK_DIR / scene_class / scene).with_suffix(".npz")
+            scene_mask = np.load(scene_mask_path)["arr_0"]
 
-                    if len(scene_mask) > 500:
-                        continue
+            if len(scene_mask) > 500:
+                continue
 
-                scene_path = (VIDEO_IN_DIR / scene_class / scene).with_suffix(EXT)
-                out_frames = cutmix_fn(
-                    file,
-                    scene_path,
-                    action_mask,
-                    SCENE_REPLACE,
-                    scene_mask,
-                    scene_transform,
-                    SOFT_EDGE_ENABLED,
-                    scene_transform_rand,
+            scene_path = (VIDEO_IN_DIR / scene_class / scene).with_suffix(EXT)
+            out_frames = cutmix_fn(
+                file,
+                scene_path,
+                action_mask,
+                SCENE_REPLACE,
+                scene_mask,
+                scene_transform,
+                SOFT_EDGE_ENABLED,
+                scene_transform_rand,
+            )
+
+            if out_frames:
+                fps = mmcv.VideoReader(str(file)).fps
+
+                video_out_path.parent.mkdir(parents=True, exist_ok=True)
+                frames_to_video(
+                    out_frames,
+                    video_out_path,
+                    writer="moviepy",
+                    fps=fps,
                 )
 
-                if out_frames:
-                    fps = mmcv.VideoReader(str(file)).fps
+                n_written += 1
+                i += 1
+            else:
+                print("out_frames None: ", file.name)
 
-                    video_out_path.parent.mkdir(parents=True, exist_ok=True)
-                    frames_to_video(
-                        out_frames,
-                        video_out_path,
-                        writer="moviepy",
-                        fps=fps,
-                    )
-
-                    n_written += 1
-                    i += 1
-                else:
-                    print("out_frames None: ", file.name)
-
-                bar.update(1)
+            bar.update(1)
 
     bar.close()
     print("Written videos:", n_written)
