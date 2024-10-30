@@ -174,7 +174,7 @@ def main():
 
         assert_that(check_value).is_not_equal_to(0.0)
         print("Scene selection:", SCENE_SELECTION_METHOD)
-        print("Matrix check cell:", check_value)
+        print("Matrix cell check:", check_value)
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
@@ -242,7 +242,7 @@ def main():
         i = 0
 
         while i < MULTIPLICATION:
-            bar.set_description(f"{file.stem} ({i+1}/{MULTIPLICATION})")
+            bar.set_description(f"{file.stem[:20]} ({i+1}/{MULTIPLICATION})")
 
             if SCENE_SELECTION_METHOD == "random":
                 scene_class = random.choice(scene_class_options)
@@ -294,10 +294,7 @@ def main():
                 VIDEO_OUT_DIR / action / f"{file.stem}-{i}-{scene_class}"
             ).with_suffix(".mp4")
 
-            if (
-                video_out_path.exists()
-                and mmcv.VideoReader(str(video_out_path)).frame_cnt > 0
-            ):
+            if video_out_path.exists():
                 bar.update(1)
                 continue
 
