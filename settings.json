@@ -1,6 +1,6 @@
 {
   "active": {
-    "dataset": "kinetics100",
+    "dataset": "ucf101",
     "random_seed": 0,
     "detector": "yolov8-coco",
     "max_workers": 8
@@ -49,15 +49,6 @@
   },
   "mask_sim": {
     "method": "bao",
-    "scheduling": {
-      "enabled": false,
-      "min_cpu": 10,
-      "min_ram": 10,
-      "time": {
-        "start": 16,
-        "stop": 8
-      }
-    },
     "min_memory": 5,
     "pack_temporal": {
       "enabled": true,
@@ -73,15 +64,15 @@
     "multiplication": 10,
     "scene": {
       "replace": "black",
-      "selection": { "method": "random" },
+      "selection": { "method": "bao-v" },
       "transform": {
         "enabled": false,
         "op": "hflip"
       }
     },
-    "soft_edge": { "enabled": true, "kernel_size": 35 },
+    "soft_edge": { "enabled": false, "kernel_size": 35 },
     "temporal_morphology": {
-      "enabled": false,
+      "enabled": true,
       "op": "dilation",
       "length": 9
     }
