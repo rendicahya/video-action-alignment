@@ -7,3 +7,6 @@
 [submodule "python_video"]
 	path = python_video
 	url = https://github.com/rendicahya/python_video.git
+[submodule "E2FGVI"]
+	path = E2FGVI
+	url = https://github.com/rendicahya/E2FGVI.git
