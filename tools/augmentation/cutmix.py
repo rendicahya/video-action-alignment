@@ -113,7 +113,7 @@ def main():
     ROOT = Path.cwd()
     DATASET = conf.active.dataset
     DETECTOR = conf.active.detector
-    DET_CONFIDENCE = conf.detect[DETECTOR].confidence
+    DET_CONF = conf.detect[DETECTOR].confidence
     SOFT_EDGE_ENABLED = conf.cutmix.soft_edge.enabled
     TEMPORAL_MORPHOLOGY_ENABLED = conf.cutmix.temporal_morphology.enabled
     SCENE_REPLACE = conf.cutmix.scene.replace
@@ -125,13 +125,13 @@ def main():
     N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
     RANDOM_SEED = conf.active.RANDOM_SEED
     VIDEO_IN_DIR = ROOT / "data" / DATASET / "videos"
-    MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
+    MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONF) / "detect/mask"
     VIDEO_OUT_DIR = (
         ROOT
         / "data"
         / DATASET
         / DETECTOR
-        / str(DET_CONFIDENCE)
+        / str(DET_CONF)
         / "mix"
         / SCENE_SELECTION_METHOD
     )
