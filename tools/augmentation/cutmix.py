@@ -31,9 +31,8 @@ def main():
     DET_CONF = conf.detect[DETECTOR].confidence
     SOFT_EDGE_ENABLED = conf.cutmix.soft_edge.enabled
     TEMPORAL_MORPHOLOGY = conf.cutmix.morphology.temporal
-    SCENE_TRANSFORM_ENABLED = conf.cutmix.scene.transform.enabled
-    SCENE_TRANSFORM_OP = conf.cutmix.scene.transform.op
-    SCENE_SELECTION_METHOD = conf.cutmix.scene.selection.method
+    SCENE_TRANSFORM = conf.cutmix.scene.transform
+    SCENE_SELECTION = conf.cutmix.scene.selection.method
     MULTIPLICATION = conf.cutmix.multiplication
     EXT = conf.datasets[DATASET].ext
     N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
@@ -41,13 +40,7 @@ def main():
     VIDEO_IN_DIR = ROOT / "data" / DATASET / "videos"
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONF) / "detect/mask"
     VIDEO_OUT_DIR = (
-        ROOT
-        / "data"
-        / DATASET
-        / DETECTOR
-        / str(DET_CONF)
-        / "mix"
-        / SCENE_SELECTION_METHOD
+        ROOT / "data" / DATASET / DETECTOR / str(DET_CONF) / "mix" / SCENE_SELECTION
     )
 
     if TEMPORAL_MORPHOLOGY.enabled:
@@ -60,8 +53,8 @@ def main():
         MASK_DIR = add_suffix(MASK_DIR, "-soft")
         VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-soft")
 
-    if SCENE_TRANSFORM_ENABLED:
-        if SCENE_TRANSFORM_OP == "hflip":
+    if SCENE_TRANSFORM.enabled:
+        if SCENE_TRANSFORM.op == "hflip":
             scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
             VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-hflip")
     else:
@@ -77,8 +70,8 @@ def main():
         "(exists)" if VIDEO_OUT_DIR.exists() else "(not exists)",
     )
 
-    if SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
-        MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION_METHOD[:3]}.npz"
+    if SCENE_SELECTION in ("iou-v", "iou-m", "bao-v", "bao-m"):
+        MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION[:3]}.npz"
 
         assert_that(MATRIX_PATH).is_file().is_readable()
 
@@ -86,15 +79,13 @@ def main():
         check_value = MATRIX[-2, -1]
 
         assert_that(check_value).is_not_equal_to(0.0)
-        print("Scene selection:", SCENE_SELECTION_METHOD)
+        print("Scene selection:", SCENE_SELECTION)
         print("Matrix cell check:", check_value)
 
     assert_that(VIDEO_IN_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(SCENE_SELECTION_METHOD).is_in(
-        "random", "iou-v", "iou-m", "bao-v", "bao-m"
-    )
-    assert_that(SCENE_TRANSFORM_OP).is_in("hflip")
+    assert_that(SCENE_SELECTION).is_in("random", "iou-v", "iou-m", "bao-v", "bao-m")
+    assert_that(SCENE_TRANSFORM.op).is_in("hflip")
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
         exit("Aborted.")
@@ -117,9 +108,9 @@ def main():
         action, filename = path.split("/")
         stem = os.path.splitext(filename)[0]
 
-        if SCENE_SELECTION_METHOD == "random":
+        if SCENE_SELECTION == "random":
             action2scenes[action].append(stem)
-        elif SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
+        elif SCENE_SELECTION in ("iou-v", "iou-m", "bao-v", "bao-m"):
             scene2action[stem] = action
             action_list[i] = int(action_idx)
             idx2stem.append(stem)
@@ -143,9 +134,9 @@ def main():
 
         action_mask = np.load(video_mask_path)["arr_0"]
 
-        if SCENE_SELECTION_METHOD == "random":
+        if SCENE_SELECTION == "random":
             scene_class_options = [s for s in action2scenes.keys() if s != action]
-        elif SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
+        elif SCENE_SELECTION in ("iou-v", "iou-m", "bao-v", "bao-m"):
             iou_row = MATRIX[file_idx][file_idx:]
             iou_col = MATRIX[:, file_idx][:file_idx]
             iou_merge = np.concatenate((iou_col, iou_row))
@@ -156,21 +147,21 @@ def main():
         while i < MULTIPLICATION:
             bar.set_description(f"{file.stem[:20]} ({i+1}/{MULTIPLICATION})")
 
-            if SCENE_SELECTION_METHOD == "random":
+            if SCENE_SELECTION == "random":
                 scene_class = random.choice(scene_class_options)
                 scene_options = action2scenes[scene_class]
                 scene = random.choice(scene_options)
 
                 scene_class_options.remove(scene_class)
 
-            elif SCENE_SELECTION_METHOD in ("iou-v", "iou-m", "bao-v", "bao-m"):
+            elif SCENE_SELECTION in ("iou-v", "iou-m", "bao-v", "bao-m"):
                 # Videos having the same action
                 same_action = np.where(np.isin(action_list, used_actions))
 
                 # Exclude from sorting
                 eligible = np.setdiff1d(all_options, same_action, assume_unique=True)
 
-                if SCENE_SELECTION_METHOD in ("iou-m", "bao-m"):
+                if SCENE_SELECTION in ("iou-m", "bao-m"):
                     eligible = np.setdiff1d(eligible, used_videos, assume_unique=True)
 
                 # Get scene with max score
@@ -179,14 +170,14 @@ def main():
                 scene_class = scene2action[scene]
 
                 # V-variants: varying action class
-                if SCENE_SELECTION_METHOD in ("iou-v", "bao-v"):
+                if SCENE_SELECTION in ("iou-v", "bao-v"):
                     scene_class_idx = action_name2idx[scene_class]
 
                     # Remember the action of the selected video
                     used_actions.append(scene_class_idx)
 
                 # M-variants: max score without varying action class
-                elif SCENE_SELECTION_METHOD in ("iou-m", "bao-m"):
+                elif SCENE_SELECTION in ("iou-m", "bao-m"):
                     # Remember the selected video
                     used_videos.append(scene_id)
 
