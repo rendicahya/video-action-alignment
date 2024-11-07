@@ -28,9 +28,10 @@ def main():
     ROOT = Path.cwd()
     DATASET = conf.active.dataset
     DETECTOR = conf.active.detector
-    DET_CONF = conf.detect[DETECTOR].confidence
-    SOFT_EDGE_ENABLED = conf.cutmix.soft_edge.enabled
+    DET_CONF = str(conf.detect[DETECTOR].confidence)
+    SOFT_EDGE = conf.cutmix.soft_edge
     TEMPORAL_MORPHOLOGY = conf.cutmix.morphology.temporal
+    SPATIAL_DILATION = conf.cutmix.morphology.dilation
     SCENE_TRANSFORM = conf.cutmix.scene.transform
     SCENE_SELECTION = conf.cutmix.scene.selection.method
     MULTIPLICATION = conf.cutmix.multiplication
@@ -38,9 +39,9 @@ def main():
     N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
     RANDOM_SEED = conf.active.RANDOM_SEED
     VIDEO_IN_DIR = ROOT / "data" / DATASET / "videos"
-    MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONF) / "detect/mask"
+    MASK_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask"
     VIDEO_OUT_DIR = (
-        ROOT / "data" / DATASET / DETECTOR / str(DET_CONF) / "mix" / SCENE_SELECTION
+        ROOT / "data" / DATASET / DETECTOR / DET_CONF / "mix" / SCENE_SELECTION
     )
 
     if TEMPORAL_MORPHOLOGY.enabled:
@@ -49,7 +50,7 @@ def main():
 
         assert_that(TEMPORAL_MORPHOLOGY.op).is_in("dilation", "opening", "closing")
 
-    if SOFT_EDGE_ENABLED:
+    if SOFT_EDGE.enabled:
         MASK_DIR = add_suffix(MASK_DIR, "-soft")
         VIDEO_OUT_DIR = add_suffix(VIDEO_OUT_DIR, "-soft")
 
@@ -202,7 +203,7 @@ def main():
                 scene_path,
                 scene_mask,
                 scene_transform,
-                SOFT_EDGE_ENABLED,
+                SOFT_EDGE.enabled,
                 scene_transform_rand,
             )
 
