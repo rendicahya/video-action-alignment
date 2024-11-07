@@ -1,4 +1,4 @@
-from os.path import exists, basename
+from os.path import basename, exists
 
 command = input("Paste your command in one line (no new lines): ").strip()
 
