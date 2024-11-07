@@ -28,6 +28,8 @@ def add_suffix(path: Path, suffix: str):
 def main():
     ROOT = Path.cwd()
     DATASET = conf.active.dataset
+    EXT = conf.datasets[DATASET].ext
+    N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
     DETECTOR = conf.active.detector
     DET_CONF = str(conf.detect[DETECTOR].confidence)
     SOFT_EDGE = conf.cutmix.soft_edge
@@ -36,10 +38,9 @@ def main():
     SCENE_TRANSFORM = conf.cutmix.scene.transform
     SCENE_SELECTION = conf.cutmix.scene.selection.method
     MULTIPLICATION = conf.cutmix.multiplication
-    EXT = conf.datasets[DATASET].ext
-    N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
     RANDOM_SEED = conf.active.RANDOM_SEED
-    VIDEO_IN_DIR = ROOT / "data" / DATASET / "videos"
+    WRITE_VIDEOS = conf.cutmix.write_videos
+    VIDEO_DIR = ROOT / "data" / DATASET / "videos"
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask"
     OUT_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "mix" / SCENE_SELECTION
 
@@ -65,7 +66,7 @@ def main():
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
-    print("Input:", VIDEO_IN_DIR.relative_to(ROOT))
+    print("Input:", VIDEO_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
     print(
         "Output:",
@@ -85,7 +86,7 @@ def main():
         print("Scene selection:", SCENE_SELECTION)
         print("Matrix cell check:", check_value)
 
-    assert_that(VIDEO_IN_DIR).is_directory().is_readable()
+    assert_that(VIDEO_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
     assert_that(SCENE_SELECTION).is_in("random", "iou-v", "iou-m", "bao-v", "bao-m")
     assert_that(SCENE_TRANSFORM.op).is_in("hflip")
@@ -102,7 +103,7 @@ def main():
     idx2stem = []
     action_name2idx = {}
 
-    with open(VIDEO_IN_DIR / "list.txt") as f:
+    with open(VIDEO_DIR / "list.txt") as f:
         file_list = f.readlines()
 
     for i, line in enumerate(file_list):
@@ -125,7 +126,7 @@ def main():
 
     for file_idx, line in enumerate(file_list):
         path, action_idx = line.split()
-        file = Path(VIDEO_IN_DIR / path)
+        file = Path(VIDEO_DIR / path)
         action = file.parent.name
         video_mask_path = (MASK_DIR / action / file.name).with_suffix(".npz")
 
@@ -207,7 +208,7 @@ def main():
             if len(scene_mask) > 500:
                 continue
 
-            scene_path = (VIDEO_IN_DIR / scene_class / scene_stem).with_suffix(EXT)
+            scene_path = (VIDEO_DIR / scene_class / scene_stem).with_suffix(EXT)
             out_frames = cutmix_fn(
                 file,
                 action_mask,
@@ -222,14 +223,16 @@ def main():
                 fps = mmcv.VideoReader(str(file)).fps
 
                 video_out_path.parent.mkdir(parents=True, exist_ok=True)
-                frames_to_video(
-                    out_frames,
-                    video_out_path,
-                    writer="moviepy",
-                    fps=fps,
-                )
 
-                n_written += 1
+                if WRITE_VIDEOS:
+                    frames_to_video(
+                        out_frames,
+                        video_out_path,
+                        writer="moviepy",
+                        fps=fps,
+                    )
+
+                    n_written += 1
                 i += 1
             else:
                 print("out_frames None: ", file.name)

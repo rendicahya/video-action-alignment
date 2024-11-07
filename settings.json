@@ -1,9 +1,8 @@
 {
   "active": {
-    "dataset": "ucf101",
+    "dataset": "hmdb51",
     "random_seed": 0,
-    "detector": "yolov8-coco",
-    "max_workers": 8
+    "detector": "yolov8-coco"
   },
   "datasets": {
     "ucf101": {
@@ -11,7 +10,11 @@
       "ext": ".avi",
       "class_index": "data/ucf101/annotations/classInd.txt",
       "n_videos": 13320,
-      "n_classes": 101
+      "n_classes": 101,
+      "standard": {
+        "w": 320,
+        "h": 240
+      }
     },
     "hmdb51": {
       "path": "data/hmdb51/videos",
@@ -19,7 +22,11 @@
       "split": 1,
       "n_videos": 6766,
       "n_classes": 51,
-      "frames": "data/hmdb51/frames"
+      "frames": "data/hmdb51/frames",
+      "standard": {
+        "w": 320,
+        "h": 240
+      }
     },
     "kinetics100": {
       "path": "data/kinetics100/videos",
@@ -27,7 +34,11 @@
       "train_ratio": 0.75,
       "split": 1,
       "n_videos": 9999,
-      "n_classes": 100
+      "n_classes": 100,
+      "standard": {
+        "w": 340,
+        "h": 256
+      }
     }
   },
   "detect": {
@@ -48,7 +59,6 @@
     }
   },
   "mask_sim": {
-    "method": "bao",
     "min_memory": 5,
     "pack_temporal": {
       "enabled": true,
@@ -58,23 +68,34 @@
       "ucf101": 1.0,
       "hmdb51": 1.0,
       "kinetics100": 1.0
+    },
+    "multithreading": {
+      "enabled": false,
+      "max_workers": 8
     }
   },
   "cutmix": {
     "multiplication": 10,
     "scene": {
-      "replace": "black",
-      "selection": { "method": "bao-v" },
+      "selection": { "method": "iou-v" },
       "transform": {
         "enabled": false,
         "op": "hflip"
       }
     },
-    "soft_edge": { "enabled": false, "kernel_size": 35 },
-    "temporal_morphology": {
-      "enabled": true,
-      "op": "dilation",
-      "length": 9
-    }
+    "soft_edge": { "enabled": true, "kernel_size": 35 },
+    "morphology": {
+      "temporal": {
+        "enabled": true,
+        "op": "dilation",
+        "length": 9
+      },
+      "spatial": {
+        "enabled": true,
+        "op": "dilation",
+        "ratio": 0.1
+      }
+    },
+    "write_videos": true
   }
 }
