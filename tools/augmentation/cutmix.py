@@ -7,6 +7,7 @@ import os
 import random
 from collections import defaultdict
 from pathlib import Path
+from math import sqrt
 
 import click
 import cv2
@@ -48,6 +49,9 @@ def main():
 
         assert_that(TEMPORAL_MORPHOLOGY.op).is_in("dilation", "opening", "closing")
 
+    if SPATIAL_MORPHOLOGY.enabled:
+        OUT_DIR = add_suffix(OUT_DIR, "-enlarged")
+
     if SOFT_EDGE.enabled:
         MASK_DIR = add_suffix(MASK_DIR, "-soft")
         OUT_DIR = add_suffix(OUT_DIR, "-soft")
@@ -58,8 +62,6 @@ def main():
             OUT_DIR = add_suffix(OUT_DIR, "-hflip")
     else:
         scene_transform = None
-
-    OUT_DIR = add_suffix(OUT_DIR, "-TEST")
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
@@ -131,6 +133,17 @@ def main():
             continue
 
         action_mask = np.load(video_mask_path)["arr_0"]
+
+        if SPATIAL_MORPHOLOGY.enabled and SPATIAL_MORPHOLOGY.op == "dilation":
+            T, h, w = action_mask.shape
+            hypotenuse = sqrt(h**2 + w**2)
+            kernel_size = int(hypotenuse * SPATIAL_MORPHOLOGY.ratio)
+            kernel = cv2.getStructuringElement(
+                cv2.MORPH_RECT, (kernel_size, kernel_size)
+            )
+            action_mask = np.array(
+                [cv2.dilate(action_mask[t], kernel) for t in range(T)]
+            )
 
         if SCENE_SELECTION == "random":
             scene_class_options = [s for s in action2scenes.keys() if s != action]
