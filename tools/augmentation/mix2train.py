@@ -34,20 +34,19 @@ from python_video import frames_to_video
 def main(dump_path):
     ROOT = Path.cwd()
     DATASET = conf.active.dataset
-    DETECTOR = conf.active.detector
-    DET_CONF = str(conf.detect[DETECTOR].confidence)
-    DET_CONFIDENCE = str(conf.detect[DETECTOR].confidence)
-    MULTIPLICATION = conf.cutmix.multiplication
-    ACTION_DIR = ROOT / "data" / DATASET / "videos"
-    WORK_DIR = ROOT / "mmaction2/work_dirs"
-    OUT_DIR = ROOT / "data" / DATASET / "mix2train"
     EXT = conf.datasets[DATASET].ext
     N_VIDEOS = conf.datasets[DATASET].N_VIDEOS
+    DETECTOR = conf.active.detector
+    DET_CONF = str(conf.detect[DETECTOR].confidence)
+    MULTIPLICATION = conf.cutmix.multiplication
+    ACTION_DIR = ROOT / "data" / DATASET / "videos"
     SCENE_DIR = ROOT / "data" / DATASET / "scene"
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask-dilation"
     MATRIX_PATH = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask/iou.npz"
     MATRIX = np.load(MATRIX_PATH)["arr_0"]
     check_value = MATRIX[-2, -1]
+    WORK_DIR = ROOT / "mmaction2/work_dirs"
+    OUT_DIR = ROOT / "data" / DATASET / "mix2train"
 
     print("n videos:", N_VIDEOS)
     print("Action:", ACTION_DIR.relative_to(ROOT))
@@ -111,13 +110,13 @@ def main(dump_path):
         matrix_row = MATRIX[scene_file_idx][scene_file_idx:]
         matrix_col = MATRIX[:, scene_file_idx][:scene_file_idx]
         matrix_merge = np.concatenate((matrix_col, matrix_row))
-        all_options = np.argsort(matrix_merge)
+        all_videos = np.argsort(matrix_merge)
 
         # Videos having the same action
         same_class = np.where(np.isin(scene_class_list, [int(class_idx)]))
 
         # Exclude from sorting
-        eligible = np.setdiff1d(all_options, same_class, assume_unique=True)
+        eligible = np.setdiff1d(all_videos, same_class, assume_unique=True)
 
         for _ in range(MULTIPLICATION):
             eligible = np.setdiff1d(eligible, used_videos, assume_unique=True)
