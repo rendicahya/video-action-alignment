@@ -47,14 +47,14 @@ def main(ratio):
         side = int(np.sqrt(target_area))
         side = min(side, H, W)
 
-        top_left_x = np.random.randint(0, W - side + 1)
-        top_left_y = np.random.randint(0, H - side + 1)
+        left = np.random.randint(0, W - side + 1)
+        top = np.random.randint(0, H - side + 1)
         out_frames = []
 
         for frame in video_reader:
             frame[
-                top_left_y : top_left_y + side,
-                top_left_x : top_left_x + side,
+                top : top + side,
+                left : left + side,
             ] = 0
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
