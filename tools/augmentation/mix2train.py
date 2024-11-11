@@ -42,7 +42,9 @@ def main(dump_path):
     ACTION_DIR = ROOT / "data" / DATASET / "videos"
     SCENE_DIR = ROOT / "data" / DATASET / "scene"
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask-dilation"
-    MATRIX_PATH = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask/iou.npz"
+    MATRIX_PATH = (
+        ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask/iou-std.npz"
+    )
     MATRIX = np.load(MATRIX_PATH)["arr_0"]
     check_value = MATRIX[-2, -1]
     WORK_DIR = ROOT / "mmaction2/work_dirs"
@@ -53,12 +55,18 @@ def main(dump_path):
     print("Scene:", SCENE_DIR.relative_to(ROOT))
     print("Mask dir:", MASK_DIR.relative_to(ROOT))
     print("Matrix:", MATRIX_PATH.relative_to(ROOT))
-    print("Output:", OUT_DIR.relative_to(ROOT))
+    print(
+        "Output:",
+        OUT_DIR.relative_to(ROOT),
+        "(exists)" if OUT_DIR.exists() else "(not exists)",
+    )
 
     assert_that(ACTION_DIR).is_directory().is_readable()
     assert_that(SCENE_DIR).is_directory().is_readable()
     assert_that(SCENE_DIR / "list.txt").is_file().is_readable()
     assert_that(ACTION_DIR / "list.txt").is_file().is_readable()
+    assert_that(dump_path).is_file().is_readable()
+    assert_that(dump_path).is_named("dump.pkl")
     assert_that(check_value).is_not_equal_to(0.0)
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
@@ -91,10 +99,10 @@ def main(dump_path):
     bar = tqdm(total=len(dump_data) * MULTIPLICATION, dynamic_ncols=True)
     n_skipped = 0
     n_written = 0
+    scene_file_list = scene_file_list[: len(dump_data) * MULTIPLICATION]
 
     for scene_file_idx, line in enumerate(scene_file_list):
         subpath, class_idx = line.split()
-        used_videos = [int(scene_file_idx)]
         info = dump_data[scene_file_idx]
 
         if info["pred_label"] != info["gt_label"]:
@@ -119,8 +127,6 @@ def main(dump_path):
         eligible = np.setdiff1d(all_videos, same_class, assume_unique=True)
 
         for _ in range(MULTIPLICATION):
-            eligible = np.setdiff1d(eligible, used_videos, assume_unique=True)
-
             # Get action video with max score
             action_id = eligible[-1]
             action_stem = idx2stem[action_id]
@@ -135,15 +141,14 @@ def main(dump_path):
                 bar.update(1)
                 continue
 
-            action_mask = np.load(mask_path)["arr_0"]
-
             if out_path.exists() and mmcv.VideoReader(str(out_path)).frame_cnt > 0:
                 bar.update(1)
                 continue
 
-            used_videos.append(action_id)
             out_path.parent.mkdir(parents=True, exist_ok=True)
 
+            action_mask = np.load(mask_path)["arr_0"]
+            eligible = np.setdiff1d(eligible, [action_id], assume_unique=True)
             out_frames = cutmix_fn(action_path, action_mask, scene_path)
 
             if out_frames:
@@ -159,9 +164,6 @@ def main(dump_path):
                 print("out_frames None: ", filename)
 
             bar.update(1)
-            # break
-
-        break
 
     bar.close()
     print("Written videos:", n_written)
