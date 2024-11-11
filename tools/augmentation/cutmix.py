@@ -3,11 +3,11 @@ import sys
 sys.path.append(".")
 
 import json
-import os
 import random
 from collections import defaultdict
-from pathlib import Path
 from math import sqrt
+from os.path import splitext
+from pathlib import Path
 
 import click
 import cv2
@@ -21,8 +21,8 @@ from config import settings as conf
 from python_video import frames_to_video
 
 
-def add_suffix(path: Path, suffix: str):
-    return path.parent / (path.stem + suffix)
+def append_name(path: Path, name: str):
+    return path.parent / (path.stem + name + path.suffix)
 
 
 def main():
@@ -45,37 +45,36 @@ def main():
     OUT_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "mix" / SCENE_SELECTION
 
     if TEMPORAL_MORPHOLOGY.enabled:
-        MASK_DIR = add_suffix(MASK_DIR, "-" + TEMPORAL_MORPHOLOGY.op)
-        OUT_DIR = add_suffix(OUT_DIR, "-" + TEMPORAL_MORPHOLOGY.op)
+        MASK_DIR = append_name(MASK_DIR, "-" + TEMPORAL_MORPHOLOGY.op)
+        OUT_DIR = append_name(OUT_DIR, "-" + TEMPORAL_MORPHOLOGY.op)
 
         assert_that(TEMPORAL_MORPHOLOGY.op).is_in("dilation", "opening", "closing")
 
     if SPATIAL_MORPHOLOGY.enabled:
-        OUT_DIR = add_suffix(OUT_DIR, "-enlarged")
+        OUT_DIR = append_name(OUT_DIR, "-enlarged")
 
     if SOFT_EDGE.enabled:
-        MASK_DIR = add_suffix(MASK_DIR, "-soft")
-        OUT_DIR = add_suffix(OUT_DIR, "-soft")
+        MASK_DIR = append_name(MASK_DIR, "-soft")
+        OUT_DIR = append_name(OUT_DIR, "-soft")
 
     if SCENE_TRANSFORM.enabled:
         if SCENE_TRANSFORM.op == "hflip":
             scene_transform = {"fn": lambda frame: cv2.flip(frame, 1), "prob": 0.5}
-            OUT_DIR = add_suffix(OUT_DIR, "-hflip")
+            OUT_DIR = append_name(OUT_DIR, "-hflip")
     else:
         scene_transform = None
+
+    OUT_DIR = append_name(OUT_DIR, "-std")
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
     print("Input:", VIDEO_DIR.relative_to(ROOT))
     print("Mask:", MASK_DIR.relative_to(ROOT))
-    print(
-        "Output:",
-        OUT_DIR.relative_to(ROOT),
-        "(exists)" if OUT_DIR.exists() else "(not exists)",
-    )
+    print("Scene selection:", SCENE_SELECTION)
 
     if SCENE_SELECTION in ("iou-v", "iou-m", "bao-v", "bao-m"):
         MATRIX_PATH = MASK_DIR.parent / f"mask/{SCENE_SELECTION[:3]}.npz"
+        MATRIX_PATH = append_name(MATRIX_PATH, "-std")
 
         assert_that(MATRIX_PATH).is_file().is_readable()
 
@@ -83,8 +82,14 @@ def main():
         check_value = MATRIX[-2, -1]
 
         assert_that(check_value).is_not_equal_to(0.0)
-        print("Scene selection:", SCENE_SELECTION)
+        print("Matrix:", MATRIX_PATH.relative_to(ROOT))
         print("Matrix cell check:", check_value)
+
+    print(
+        "Output:",
+        OUT_DIR.relative_to(ROOT),
+        "(exists)" if OUT_DIR.exists() else "(not exists)",
+    )
 
     assert_that(VIDEO_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
@@ -109,7 +114,7 @@ def main():
     for i, line in enumerate(file_list):
         path, action_idx = line.split()
         action, filename = path.split("/")
-        stem = os.path.splitext(filename)[0]
+        stem = splitext(filename)[0]
 
         if SCENE_SELECTION == "random":
             action2scenes[action].append(stem)
@@ -149,10 +154,14 @@ def main():
         if SCENE_SELECTION == "random":
             scene_class_options = [s for s in action2scenes.keys() if s != action]
         else:
-            iou_row = MATRIX[file_idx][file_idx:]
-            iou_col = MATRIX[:, file_idx][:file_idx]
-            iou_merge = np.concatenate((iou_col, iou_row))
-            all_videos = np.argsort(iou_merge)
+            if SCENE_SELECTION.startswith("iou"):
+                row = MATRIX[file_idx][file_idx:]
+                col = MATRIX[:, file_idx][:file_idx]
+                sim_data = np.concatenate((col, row))
+            else:
+                sim_data = MATRIX[file_idx]
+
+            all_videos = np.argsort(sim_data)
 
             # Videos from the current action
             videos_of_same_action = np.where(np.isin(action_list, [int(action_idx)]))
