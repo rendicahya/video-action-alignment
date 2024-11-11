@@ -140,14 +140,14 @@ for fg_idx, fg_file in enumerate(file_list):
     if fg_idx < START_IDX:
         continue
 
-    bg_file_list = file_list[fg_idx + 1 :]
+    sublist = file_list[fg_idx + 1 :]
     jobs = {}
 
     bar.set_description(fg_file[:30])
 
     if MULTITHREADING.enabled:
         with ThreadPoolExecutor(max_workers=MULTITHREADING.max_workers) as executor:
-            for bg_file in bg_file_list:
+            for bg_file in sublist:
                 bg_idx = file_list.index(bg_file)
                 jobs[(fg_idx, bg_idx)] = executor.submit(
                     compute_sim_bool_std, mask_bank[fg_file], mask_bank[bg_file]
@@ -159,7 +159,7 @@ for fg_idx, fg_file in enumerate(file_list):
                 bao_data[f, b] = iob
                 bao_data[b, f] = iof
     else:
-        for bg_file in bg_file_list:
+        for bg_file in sublist:
             bg_idx = file_list.index(bg_file)
             iou, iob, iof = compute_sim_cupy_std(mask_bank[fg_file], mask_bank[bg_file])
             iou_data[fg_idx, bg_idx] = iou
