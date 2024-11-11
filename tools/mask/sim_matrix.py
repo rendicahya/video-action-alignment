@@ -134,6 +134,7 @@ bar = tqdm(
 )
 
 bar.update(START_IDX)
+print('Computing...')
 
 for fg_idx, fg_file in enumerate(file_list):
     if fg_idx < START_IDX:
