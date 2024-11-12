@@ -13,7 +13,7 @@ import click
 import cv2
 import mmcv
 import numpy as np
-from lib_cutmix import cutmix_fn
+from library import compute_artifact, cutmix_fn
 from tqdm import tqdm
 
 from assertpy.assertpy import assert_that
@@ -39,6 +39,7 @@ def main():
     SCENE_SELECTION = conf.cutmix.scene.selection.method
     MULTIPLICATION = conf.cutmix.multiplication
     RANDOM_SEED = conf.active.RANDOM_SEED
+    COMPUTE_ARTIFACT = conf.cutmix.compute_artifact
     WRITE_VIDEOS = conf.cutmix.write_videos
     VIDEO_DIR = ROOT / "data" / DATASET / "videos"
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask"
@@ -90,6 +91,8 @@ def main():
         OUT_DIR.relative_to(ROOT),
         "(exists)" if OUT_DIR.exists() else "(not exists)",
     )
+    print("Write videos:", WRITE_VIDEOS)
+    print("Compute artifact:", COMPUTE_ARTIFACT)
 
     assert_that(VIDEO_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
@@ -128,12 +131,14 @@ def main():
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
+    artifact_list = []
 
     for file_idx, line in enumerate(file_list):
         path, action_idx = line.split()
         file = Path(VIDEO_DIR / path)
         action = file.parent.name
         video_mask_path = (MASK_DIR / action / file.name).with_suffix(".npz")
+        fps = mmcv.VideoReader(str(file)).fps
 
         if not video_mask_path.is_file() or not video_mask_path.exists():
             continue
@@ -217,39 +222,44 @@ def main():
             if len(scene_mask) > 500:
                 continue
 
-            scene_path = (VIDEO_DIR / scene_class / scene_stem).with_suffix(EXT)
-            out_frames = cutmix_fn(
-                file,
-                action_mask,
-                scene_path,
-                scene_mask,
-                scene_transform,
-                SOFT_EDGE.enabled,
-                scene_transform_rand,
-            )
+            if COMPUTE_ARTIFACT:
+                artifact_list.append(compute_artifact(action_mask, scene_mask))
 
-            if out_frames:
-                fps = mmcv.VideoReader(str(file)).fps
+            scene_path = (VIDEO_DIR / scene_class / scene_stem).with_suffix(EXT)
+
+            if WRITE_VIDEOS:
+                out_frames = cutmix_fn(
+                    file,
+                    action_mask,
+                    scene_path,
+                    scene_mask,
+                    scene_transform,
+                    SOFT_EDGE.enabled,
+                    scene_transform_rand,
+                )
+
+                if not out_frames:
+                    continue
 
                 video_out_path.parent.mkdir(parents=True, exist_ok=True)
 
-                if WRITE_VIDEOS:
-                    frames_to_video(
-                        out_frames,
-                        video_out_path,
-                        writer="moviepy",
-                        fps=fps,
-                    )
+                frames_to_video(
+                    out_frames,
+                    video_out_path,
+                    writer="moviepy",
+                    fps=fps,
+                )
 
-                    n_written += 1
-                i += 1
-            else:
-                print("out_frames None: ", file.name)
+                n_written += 1
 
+            i += 1
             bar.update(1)
 
     bar.close()
     print("Written videos:", n_written)
+
+    if COMPUTE_ARTIFACT:
+        print("Artifact ratio:", np.mean(artifact_list))
 
 
 if __name__ == "__main__":
