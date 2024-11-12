@@ -65,7 +65,8 @@ def main():
     else:
         scene_transform = None
 
-    OUT_DIR = append_name(OUT_DIR, "-std")
+    if SCENE_SELECTION != "random":
+        OUT_DIR = append_name(OUT_DIR, "-std")
 
     print("n videos:", N_VIDEOS)
     print("Multiplication:", MULTIPLICATION)
