@@ -1,5 +1,6 @@
 import random
 
+import cupy as cp
 import cv2
 import mmcv
 import numpy as np
@@ -83,3 +84,29 @@ def cutmix_fn(
         scene_frame = scene_reader.read()
 
         yield cv2.cvtColor(mix, cv2.COLOR_BGR2RGB)
+
+
+def compute_artifact(fg_mask, bg_mask) -> float:
+    fg_len = len(fg_mask)
+    bg_len = len(bg_mask)
+    h, w = fg_mask.shape[1:]
+
+    if bg_mask.shape[1:] != (h, w):
+        bg_mask = np.moveaxis(bg_mask, 0, -1)
+        bg_mask = cv2.resize(bg_mask, dsize=(w, h))
+        bg_mask = np.moveaxis(bg_mask, -1, 0)
+
+    fg_mask = cp.array(fg_mask, dtype=cp.bool_)
+    bg_mask = cp.array(bg_mask, dtype=cp.bool_)
+
+    bg_mask_repeated = (
+        bg_mask[:fg_len]
+        if fg_len <= bg_len
+        else cp.tile(bg_mask, (fg_len // bg_len + 1, 1, 1))[:fg_len]
+    )
+
+    bg_area = bg_mask_repeated.sum(axis=(1, 2), dtype=cp.float16)
+    fg_area = fg_mask.sum(axis=(1, 2), dtype=cp.float16)
+    diff_ratio = cp.where(bg_area == 0, 0, (bg_area - fg_area) / bg_area).mean().item()
+
+    return diff_ratio
