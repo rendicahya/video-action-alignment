@@ -15,14 +15,6 @@ def cutmix_fn(
     soft_edge=False,
     scene_transform_rand=random.Random(),
 ):
-    if not actor_path.is_file() or not actor_path.exists():
-        print("Not a file or not exists:", actor_path)
-        return None
-
-    if not scene_path.is_file() or not scene_path.exists():
-        print("Not a file or not exists:", scene_path)
-        return None
-
     actor_reader = mmcv.VideoReader(str(actor_path))
     w, h = actor_reader.resolution
     scene_frame = None
@@ -105,8 +97,8 @@ def compute_artifact(fg_mask, bg_mask) -> float:
         else cp.tile(bg_mask, (fg_len // bg_len + 1, 1, 1))[:fg_len]
     )
 
-    bg_area = bg_mask_repeated.sum(axis=(1, 2), dtype=cp.float16)
-    fg_area = fg_mask.sum(axis=(1, 2), dtype=cp.float16)
-    diff_ratio = cp.where(bg_area == 0, 0, (bg_area - fg_area) / bg_area).mean().item()
+    bg_area = bg_mask_repeated.sum(axis=(1, 2), dtype=cp.float32)
+    intersection = (fg_mask & bg_mask_repeated).sum(axis=(1, 2), dtype=cp.float32)
+    diff_ratio = cp.where(bg_area == 0, 0, (bg_area - intersection) / bg_area).mean()
 
     return diff_ratio
