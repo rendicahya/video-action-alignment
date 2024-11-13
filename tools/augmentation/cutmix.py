@@ -132,7 +132,7 @@ def main():
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
-    artifact_list = []
+    artifact_list = np.zeros(N_VIDEOS * MULTIPLICATION, dtype=np.float32)
 
     for file_idx, line in enumerate(file_list):
         path, action_idx = line.split()
@@ -215,6 +215,7 @@ def main():
 
             if video_out_path.exists():
                 bar.update(1)
+                i += 1
                 continue
 
             scene_mask_path = (MASK_DIR / scene_class / scene_stem).with_suffix(".npz")
@@ -224,7 +225,9 @@ def main():
                 continue
 
             if COMPUTE_ARTIFACT:
-                artifact_list.append(compute_artifact(action_mask, scene_mask))
+                artifact_list[file_idx * MULTIPLICATION + i] = compute_artifact(
+                    action_mask, scene_mask
+                )
 
             scene_path = (VIDEO_DIR / scene_class / scene_stem).with_suffix(EXT)
 
@@ -260,7 +263,7 @@ def main():
     print("Written videos:", n_written)
 
     if COMPUTE_ARTIFACT:
-        print("Artifact ratio:", np.mean(artifact_list))
+        print("Artifact ratio:", artifact_list.mean())
 
 
 if __name__ == "__main__":
