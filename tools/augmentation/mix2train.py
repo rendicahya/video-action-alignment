@@ -18,6 +18,10 @@ from config import settings as conf
 from python_video import frames_to_video
 
 
+def append_name(path: Path, name: str):
+    return path.parent / (path.stem + name + path.suffix)
+
+
 @click.command()
 @click.argument(
     "dump-path",
@@ -49,12 +53,12 @@ def main(dump_path):
     MATRIX = np.load(MATRIX_PATH)["arr_0"]
     check_value = MATRIX[-2, -1]
     WORK_DIR = ROOT / "mmaction2/work_dirs"
-    OUT_DIR = ROOT / "data" / DATASET / ("mix2train-" + SCENE_SELECTION)
+    OUT_DIR = ROOT / "data" / DATASET / "mix2train" / SCENE_SELECTION
 
     print("n videos:", N_VIDEOS)
     print("Action:", ACTION_DIR.relative_to(ROOT))
     print("Scene:", SCENE_DIR.relative_to(ROOT))
-    print("Mask dir:", MASK_DIR.relative_to(ROOT))
+    print("Mask:", MASK_DIR.relative_to(ROOT))
     print("Matrix:", MATRIX_PATH.relative_to(ROOT))
     print(
         "Output:",
@@ -64,6 +68,7 @@ def main(dump_path):
 
     assert_that(ACTION_DIR).is_directory().is_readable()
     assert_that(SCENE_DIR).is_directory().is_readable()
+    assert_that(MASK_DIR).is_directory().is_readable()
     assert_that(SCENE_DIR / "list.txt").is_file().is_readable()
     assert_that(ACTION_DIR / "list.txt").is_file().is_readable()
     assert_that(dump_path).is_file().is_readable()
