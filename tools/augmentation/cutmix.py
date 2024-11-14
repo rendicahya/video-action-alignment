@@ -105,46 +105,44 @@ def main():
 
     random.seed(RANDOM_SEED)
 
-    action2scenes = defaultdict(list)
-    scene2action = {}
-    action_list = np.zeros(N_VIDEOS, np.uint8)
+    label2scenes = defaultdict(list)
+    scene2label = {}
+    label_list = np.zeros(N_VIDEOS, np.uint8)
     scene_transform_rand = random.Random()
     idx2stem = []
-    action_name2idx = {}
+    label2idx = {}
 
     with open(VIDEO_DIR / "list.txt") as f:
         file_list = f.readlines()
 
     for i, line in enumerate(file_list):
-        path, action_idx = line.split()
-        action, filename = path.split("/")
+        path, label_idx = line.split()
+        label, filename = path.split("/")
         stem = splitext(filename)[0]
 
         if SCENE_SELECTION == "random":
-            action2scenes[action].append(stem)
+            label2scenes[label].append(stem)
         else:
-            scene2action[stem] = action
-            action_list[i] = int(action_idx)
+            scene2label[stem] = label
+            label_list[i] = int(label_idx)
             idx2stem.append(stem)
 
-            if action not in action_name2idx:
-                action_name2idx[action] = int(action_idx)
+            if label not in label2idx:
+                label2idx[label] = int(label_idx)
 
     bar = tqdm(total=N_VIDEOS * MULTIPLICATION, dynamic_ncols=True)
     n_written = 0
     artifact_list = np.zeros(N_VIDEOS * MULTIPLICATION, dtype=np.float32)
 
     for file_idx, line in enumerate(file_list):
-        path, action_idx = line.split()
+        path, label_idx = line.split()
         file = Path(VIDEO_DIR / path)
-        action = file.parent.name
-        video_mask_path = (MASK_DIR / action / file.name).with_suffix(".npz")
-        fps = mmcv.VideoReader(str(file)).fps
-
-        if not video_mask_path.is_file() or not video_mask_path.exists():
-            continue
-
+        label = file.parent.name
+        video_mask_path = (MASK_DIR / label / file.name).with_suffix(".npz")
         action_mask = np.load(video_mask_path)["arr_0"]
+
+        if WRITE_VIDEOS:
+            fps = mmcv.VideoReader(str(file)).fps
 
         if SPATIAL_MORPHOLOGY.enabled and SPATIAL_MORPHOLOGY.op == "dilation":
             T, h, w = action_mask.shape
@@ -158,7 +156,7 @@ def main():
             )
 
         if SCENE_SELECTION == "random":
-            scene_class_options = [s for s in action2scenes.keys() if s != action]
+            scene_label_options = [s for s in label2scenes.keys() if s != label]
         else:
             if SCENE_SELECTION.startswith("iou"):
                 row = MATRIX[file_idx][file_idx:]
@@ -170,12 +168,10 @@ def main():
             all_videos = np.argsort(sim_data)
 
             # Videos from the current action
-            videos_of_same_action = np.where(np.isin(action_list, [int(action_idx)]))
+            videos_same_label = np.where(np.isin(label_list, [int(label_idx)]))
 
             # Exclude them from sorting
-            eligible = np.setdiff1d(
-                all_videos, videos_of_same_action, assume_unique=True
-            )
+            eligible = np.setdiff1d(all_videos, videos_same_label, assume_unique=True)
 
         i = 0
 
@@ -183,42 +179,33 @@ def main():
             bar.set_description(f"{file.stem[:20]} ({i+1}/{MULTIPLICATION})")
 
             if SCENE_SELECTION == "random":
-                scene_class = random.choice(scene_class_options)
-                scene_options = action2scenes[scene_class]
+                scene_label = random.choice(scene_label_options)
+                scene_options = label2scenes[scene_label]
                 scene_stem = random.choice(scene_options)
 
-                scene_class_options.remove(scene_class)
+                scene_label_options.remove(scene_label)
 
             else:
                 scene_id = eligible[-1]
                 scene_stem = idx2stem[scene_id]
-                scene_class = scene2action[scene_stem]
+                scene_label = scene2label[scene_stem]
 
                 if SCENE_SELECTION in ("iou-v", "bao-v"):
-                    scene_class_idx = action_name2idx[scene_class]
-                    videos_of_selected_action = np.where(
-                        np.isin(action_list, [scene_class_idx])
+                    scene_label_idx = label2idx[scene_label]
+                    videos_selected_label = np.where(
+                        np.isin(label_list, [scene_label_idx])
                     )
 
                     # Remove the videos of the selected action from the eligible list
                     eligible = np.setdiff1d(
-                        eligible, videos_of_selected_action, assume_unique=True
+                        eligible, videos_selected_label, assume_unique=True
                     )
 
                 elif SCENE_SELECTION in ("iou-m", "bao-m"):
                     # Remove the selected from the eligible list
                     eligible = np.setdiff1d(eligible, [scene_id], assume_unique=True)
 
-            video_out_path = (
-                OUT_DIR / action / f"{file.stem}-{i}-{scene_class}"
-            ).with_suffix(".mp4")
-
-            if video_out_path.exists():
-                bar.update(1)
-                i += 1
-                continue
-
-            scene_mask_path = (MASK_DIR / scene_class / scene_stem).with_suffix(".npz")
+            scene_mask_path = (MASK_DIR / scene_label / scene_stem).with_suffix(".npz")
             scene_mask = np.load(scene_mask_path)["arr_0"]
 
             if len(scene_mask) > 500:
@@ -229,9 +216,17 @@ def main():
                     action_mask, scene_mask
                 )
 
-            scene_path = (VIDEO_DIR / scene_class / scene_stem).with_suffix(EXT)
-
             if WRITE_VIDEOS:
+                video_out_path = (
+                    OUT_DIR / label / f"{file.stem}-{i}-{scene_label}"
+                ).with_suffix(".mp4")
+
+                if video_out_path.exists():
+                    bar.update(1)
+                    i += 1
+                    continue
+
+                scene_path = (VIDEO_DIR / scene_label / scene_stem).with_suffix(EXT)
                 out_frames = cutmix_fn(
                     file,
                     action_mask,
