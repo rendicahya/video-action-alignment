@@ -15,4 +15,4 @@ for single in command.split(";"):
         if not ext or ext not in (".py", ".pth") or stem in skip:
             continue
 
-        print(base, exists(segment))
+        print('-', base, exists(segment))
