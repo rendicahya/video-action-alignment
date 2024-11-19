@@ -6,6 +6,44 @@ import mmcv
 import numpy as np
 
 
+def rand_bbox(W, H, lambda_):
+    cut_ratio = np.sqrt(1.0 - lambda_)
+    cut_w = int(W * cut_ratio)
+    cut_h = int(H * cut_ratio)
+
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    x1 = np.clip(cx - cut_w // 2, 0, W)
+    y1 = np.clip(cy - cut_h // 2, 0, H)
+    x2 = np.clip(cx + cut_w // 2, 0, W)
+    y2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return x1, y1, x2, y2
+
+
+def videomix_fn(actor_path, scene_path):
+    actor_reader = mmcv.VideoReader(str(actor_path))
+    scene_frame = None
+    alpha = 1
+    w, h = actor_reader.resolution
+    lambda_ = np.random.beta(alpha, alpha)
+    x1, y1, x2, y2 = rand_bbox(w, h, lambda_)
+
+    for f, actor_frame in enumerate(actor_reader):
+        if scene_frame is None:
+            scene_reader = mmcv.VideoReader(str(scene_path))
+            scene_n_frames = scene_reader.frame_cnt
+            scene_frame = scene_reader.read()
+
+        if scene_frame.shape[:2] != (h, w):
+            scene_frame = cv2.resize(scene_frame, (w, h))
+
+        actor_frame[y1:y2, x1:x2] = scene_frame[y1:y2, x1:x2]
+
+        yield cv2.cvtColor(actor_frame, cv2.COLOR_BGR2RGB)
+
+
 def cutmix_fn(
     actor_path,
     action_mask,
