@@ -45,6 +45,10 @@ def main():
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "detect/mask"
     OUT_DIR = ROOT / "data" / DATASET / DETECTOR / DET_CONF / "mix" / SCENE_SELECTION
 
+    if SCENE_SELECTION == "videomix":
+        MASK_DIR = ROOT / "data" / DATASET / "videomix/mask"
+        OUT_DIR = ROOT / "data" / DATASET / "videomix/videos"
+
     if TEMPORAL_MORPHOLOGY.enabled:
         MASK_DIR = append_name(MASK_DIR, "-" + TEMPORAL_MORPHOLOGY.op)
         OUT_DIR = append_name(OUT_DIR, "-" + TEMPORAL_MORPHOLOGY.op)
@@ -65,7 +69,7 @@ def main():
     else:
         scene_transform = None
 
-    if SCENE_SELECTION != "random":
+    if SCENE_SELECTION in ("iou-v", "iou-m", "bao-v", "bao-m"):
         OUT_DIR = append_name(OUT_DIR, "-std")
 
     print("n videos:", N_VIDEOS)
@@ -97,7 +101,9 @@ def main():
 
     assert_that(VIDEO_DIR).is_directory().is_readable()
     assert_that(MASK_DIR).is_directory().is_readable()
-    assert_that(SCENE_SELECTION).is_in("random", "iou-v", "iou-m", "bao-v", "bao-m")
+    assert_that(SCENE_SELECTION).is_in(
+        "random", "iou-v", "iou-m", "bao-v", "bao-m", "videomix"
+    )
     assert_that(SCENE_TRANSFORM.op).is_in("hflip")
 
     if not click.confirm("\nDo you want to continue?", show_default=True):
@@ -120,7 +126,7 @@ def main():
         label, filename = path.split("/")
         stem = splitext(filename)[0]
 
-        if SCENE_SELECTION == "random":
+        if SCENE_SELECTION in ("random", "videomix"):
             label2scenes[label].append(stem)
         else:
             scene2label[stem] = label
@@ -155,7 +161,7 @@ def main():
                 [cv2.dilate(action_mask[t], kernel) for t in range(T)]
             )
 
-        if SCENE_SELECTION == "random":
+        if SCENE_SELECTION in ("random", "videomix"):
             scene_label_options = [s for s in label2scenes.keys() if s != label]
         else:
             if SCENE_SELECTION.startswith("iou"):
@@ -178,13 +184,12 @@ def main():
         while i < MULTIPLICATION:
             bar.set_description(f"{file.stem[:20]} ({i+1}/{MULTIPLICATION})")
 
-            if SCENE_SELECTION == "random":
+            if SCENE_SELECTION in ("random", "videomix"):
                 scene_label = random.choice(scene_label_options)
                 scene_options = label2scenes[scene_label]
                 scene_stem = random.choice(scene_options)
 
                 scene_label_options.remove(scene_label)
-
             else:
                 scene_id = eligible[-1]
                 scene_stem = idx2stem[scene_id]
@@ -200,16 +205,20 @@ def main():
                     eligible = np.setdiff1d(
                         eligible, videos_selected_label, assume_unique=True
                     )
-
                 elif SCENE_SELECTION in ("iou-m", "bao-m"):
                     # Remove the selected from the eligible list
                     eligible = np.setdiff1d(eligible, [scene_id], assume_unique=True)
 
-            scene_mask_path = (MASK_DIR / scene_label / scene_stem).with_suffix(".npz")
-            scene_mask = np.load(scene_mask_path)["arr_0"]
+            if SCENE_SELECTION == "videomix":
+                scene_mask = None
+            else:
+                scene_mask_path = (MASK_DIR / scene_label / scene_stem).with_suffix(
+                    ".npz"
+                )
+                scene_mask = np.load(scene_mask_path)["arr_0"]
 
-            if len(scene_mask) > 500:
-                continue
+            # if len(scene_mask) > 500:
+            #     continue
 
             if COMPUTE_ARTIFACT:
                 artifact_list[file_idx * MULTIPLICATION + i] = compute_artifact(
