@@ -1,4 +1,4 @@
-# ActorCutMix v2
+# Video Action Alignment
 
 # Dependencies
 
