@@ -141,6 +141,9 @@ def main():
     artifact_list = np.zeros(N_VIDEOS * MULTIPLICATION, dtype=np.float32)
 
     for file_idx, line in enumerate(file_list):
+        # if file_idx != 231:
+        #     continue
+
         path, label_idx = line.split()
         file = Path(VIDEO_DIR / path)
         label = file.parent.name
@@ -217,8 +220,8 @@ def main():
                 )
                 scene_mask = np.load(scene_mask_path)["arr_0"]
 
-            # if len(scene_mask) > 500:
-            #     continue
+            if len(scene_mask) > 500:
+                continue
 
             if COMPUTE_ARTIFACT:
                 artifact_list[file_idx * MULTIPLICATION + i] = compute_artifact(
@@ -267,6 +270,11 @@ def main():
     print("Written videos:", n_written)
 
     if COMPUTE_ARTIFACT:
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+        with open(OUT_DIR / "artifact.json", "w") as f:
+            json.dump(artifact_list.tolist(), f, indent=2)
+
         print("Artifact ratio:", artifact_list.mean())
 
 

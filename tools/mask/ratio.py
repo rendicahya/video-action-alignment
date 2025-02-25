@@ -36,7 +36,6 @@ def calc_ratio(path):
 )
 def main(mask_path):
     ROOT = Path.cwd()
-    MAX_WORKERS = conf.active.max_workers
     OUT_PATH = mask_path / "ratio.json"
     N_FILES = sum(1 for f in mask_path.glob(f"**/*.*") if f.parent != mask_path)
     data = {}
@@ -54,7 +53,7 @@ def main(mask_path):
 
     assert_that(mask_path).is_directory().is_readable()
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as exec:
+    with ThreadPoolExecutor(max_workers=8) as exec:
         jobs = {
             exec.submit(calc_ratio, path): path for path in mask_path.glob("**/*.npz")
         }

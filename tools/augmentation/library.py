@@ -107,7 +107,7 @@ def compute_artifact(fg_mask, bg_mask) -> float:
 
     if bg_mask.shape[1:] != (h, w):
         bg_mask = np.moveaxis(bg_mask, 0, -1)
-        bg_mask = cv2.resize(bg_mask, dsize=(w, h))
+        bg_mask = cv2.resize(bg_mask, (w, h))
         bg_mask = np.moveaxis(bg_mask, -1, 0)
 
     fg_mask = cp.array(fg_mask, dtype=cp.bool_)

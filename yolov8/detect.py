@@ -8,12 +8,12 @@ from pathlib import Path
 import click
 import mmcv
 import numpy as np
-from config import settings as conf
 from moviepy.editor import ImageSequenceClip
 from tqdm import tqdm
 from ultralytics import YOLO
 
 from assertpy.assertpy import assert_that
+from config import settings as conf
 
 root = Path.cwd()
 dataset = conf.active.dataset

@@ -55,8 +55,7 @@ def main(log_path):
     )
 
     print("Train:")
-    print_log(lines, train_pattern, "Epoch(train)")
-    print()
+    print_log(lines, train_pattern, "Epoch(train)\n")
 
     print("Validation:")
     print_log(lines, val_pattern,"Epoch(val)")

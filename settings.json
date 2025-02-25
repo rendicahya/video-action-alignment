@@ -1,6 +1,6 @@
 {
   "active": {
-    "dataset": "hmdb51",
+    "dataset": "kinetics100",
     "random_seed": 0,
     "detector": "yolov8-coco"
   },
@@ -77,25 +77,82 @@
   "cutmix": {
     "multiplication": 10,
     "scene": {
-      "selection": { "method": "iou-v" },
+      "selection": { "method": "bao-m" },
       "transform": {
         "enabled": false,
         "op": "hflip"
       }
     },
-    "soft_edge": { "enabled": true, "kernel_size": 35 },
+    "soft_edge": { "enabled": false, "kernel_size": 35 },
     "morphology": {
       "temporal": {
-        "enabled": true,
+        "enabled": false,
         "op": "dilation",
         "length": 9
       },
       "spatial": {
-        "enabled": true,
+        "enabled": false,
         "op": "dilation",
         "ratio": 0.1
       }
     },
-    "write_videos": true
+    "compute_artifact": true,
+    "write_videos": false
+  },
+  "cam": {
+    "target_layer": "backbone/conv5b",
+    "colormap": "turbo",
+    "alpha": 0.9,
+    "ucf101": {
+      "video_list": "data/ucf101/videos/list.txt",
+      "A": {
+        "config": "mmaction2/configs/actorcutmix-v2/c3d-ucf101-hard-std/c3d_sports1m-pretrained_8xb64-16x1x1-100e_ucf101-rgb-cam-random.py",
+        "checkpoint": "mmaction2/work_dirs/hard-std/ucf101/cam/random/c3d/train/0/best_acc_top1_epoch_34.pth",
+        "dump": "mmaction2/work_dirs/hard-std/ucf101/cam/random/c3d/test/0/dump.pkl"
+      },
+      "B": {
+        "config": "mmaction2/configs/actorcutmix-v2/c3d-ucf101-hard-std/c3d_sports1m-pretrained_8xb64-16x1x1-100e_ucf101-rgb-cam-bao-m-dilation.py",
+        "checkpoint": "-----------",
+        "dump": "-----------"
+      },
+      "output": {
+        "resolution": [320, -1],
+        "dir": "data/ucf101/cam"
+      }
+    },
+    "hmdb51": {
+      "video_list": "data/hmdb51/videos/list.txt",
+      "A": {
+        "config": "mmaction2/configs/actorcutmix-v2/c3d-hmdb51-hard-std/c3d_sports1m-pretrained_8xb64-16x1x1-100e_hmdb51-rgb-cam-random.py",
+        "checkpoint": "mmaction2/work_dirs/hard-std/hmdb51/cam/random/c3d/train/0/best_acc_top1_epoch_53.pth",
+        "dump": "mmaction2/work_dirs/hard-std/hmdb51/cam/random/c3d/test/0/dump.pkl"
+      },
+      "B": {
+        "config": "mmaction2/configs/actorcutmix-v2/c3d-hmdb51-hard-std/c3d_sports1m-pretrained_8xb64-16x1x1-100e_hmdb51-rgb-cam-bao-m-dilation.py",
+        "checkpoint": "mmaction2/work_dirs/hard-std/hmdb51/cam/bao-m-dilation/c3d/train/0/best_acc_top1_epoch_25.pth",
+        "dump": "mmaction2/work_dirs/hard-std/hmdb51/cam/bao-m-dilation/c3d/test/0/dump.pkl"
+      },
+      "output": {
+        "resolution": [320, -1],
+        "dir": "data/hmdb51/cam"
+      }
+    },
+    "kinetics100": {
+      "video_list": "data/hmdb51/videos/list.txt",
+      "A": {
+        "config": "mmaction2/configs/actorcutmix-v2/c3d-kinetics100-hard-std/c3d_sports1m-pretrained_8xb64-16x1x1-100e_kinetics100-rgb-cam-random.py",
+        "checkpoint": "mmaction2/work_dirs/hard-std/kinetics100/cam/random/c3d/train/0/best_acc_top1_epoch_100.pth",
+        "dump": "mmaction2/work_dirs/hard-std/kinetics100/cam/random/c3d/test/0/dump.pkl"
+      },
+      "B": {
+        "config": "mmaction2/configs/actorcutmix-v2/c3d-kinetics100-hard-std/c3d_sports1m-pretrained_8xb64-16x1x1-100e_kinetics100-rgb-cam-bao-m-dilation.py",
+        "checkpoint": "mmaction2/work_dirs/hard-std/kinetics100/cam/bao-m-dilation/c3d/train/0/best_acc_top1_epoch_30.pth",
+        "dump": "mmaction2/work_dirs/hard-std/kinetics100/cam/bao-m-dilation/c3d/test/0/dump.pkl"
+      },
+      "output": {
+        "resolution": [320, -1],
+        "dir": "data/kinetics100/cam"
+      }
+    }
   }
 }
