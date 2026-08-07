@@ -58,7 +58,13 @@ pip install -v -e mmaction2/
 4. Install other required packages.
 
 ```shell
-pip install click tqdm dynaconf av decord moviepy
+pip install click tqdm dynaconf av decord moviepy opencv-python numpy numba scipy psutil requests ultralytics
+```
+
+5. Install CuPy, matching it to your installed CUDA version (see the [CuPy install guide](https://docs.cupy.dev/en/stable/install.html)), e.g. for CUDA 12.x:
+
+```shell
+pip install cupy-cuda12x
 ```
 
 ## 2. Download datasets
