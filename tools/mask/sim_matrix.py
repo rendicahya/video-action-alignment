@@ -71,8 +71,6 @@ else:
     bao_data = np.zeros((N_FILES, N_FILES), np.float16)
     START_IDX = 0
 
-START_IDX = 0
-
 print("Input:", MASK_DIR.relative_to(ROOT))
 print("n videos:", N_FILES)
 print("Standard size:", STANDARD_SIZE)
@@ -147,8 +145,8 @@ for fg_idx, fg_file in enumerate(file_list):
 
     if MULTITHREADING.enabled:
         with ThreadPoolExecutor(max_workers=MULTITHREADING.max_workers) as executor:
-            for bg_file in sublist:
-                bg_idx = file_list.index(bg_file)
+            for offset, bg_file in enumerate(sublist):
+                bg_idx = fg_idx + 1 + offset
                 jobs[(fg_idx, bg_idx)] = executor.submit(
                     compute_sim_bool_std, mask_bank[fg_file], mask_bank[bg_file]
                 )
@@ -159,8 +157,8 @@ for fg_idx, fg_file in enumerate(file_list):
                 bao_data[f, b] = iob
                 bao_data[b, f] = iof
     else:
-        for bg_file in sublist:
-            bg_idx = file_list.index(bg_file)
+        for offset, bg_file in enumerate(sublist):
+            bg_idx = fg_idx + 1 + offset
             iou, iob, iof = compute_sim_cupy_std(mask_bank[fg_file], mask_bank[bg_file])
             iou_data[fg_idx, bg_idx] = iou
             bao_data[fg_idx, bg_idx] = iob

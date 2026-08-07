@@ -24,8 +24,8 @@ N_VIDEOS = conf.datasets[DATASET].n_videos
 DETECTOR = conf.active.DETECTOR
 DET_CONFIDENCE = conf.detect[DETECTOR].confidence
 MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
-MORPHOLOGY_OP = conf.cutmix.temporal_morphology.op
-MORPHOLOGY_LENGTH = conf.cutmix.temporal_morphology.length
+MORPHOLOGY_OP = conf.cutmix.morphology.temporal.op
+MORPHOLOGY_LENGTH = conf.cutmix.morphology.temporal.length
 OUT_DIR = MASK_DIR.parent / (MASK_DIR.name + "-" + MORPHOLOGY_OP)
 
 print("Operation:", MORPHOLOGY_OP)

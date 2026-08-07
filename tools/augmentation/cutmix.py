@@ -220,7 +220,7 @@ def main():
                 )
                 scene_mask = np.load(scene_mask_path)["arr_0"]
 
-            if len(scene_mask) > 500:
+            if scene_mask is not None and len(scene_mask) > 500:
                 continue
 
             if COMPUTE_ARTIFACT:

@@ -55,7 +55,7 @@ def cutmix_fn(
         scene_mask_norm = scene_mask / 255.0
 
     for f, actor_frame in enumerate(actor_reader):
-        if f == len(action_mask) - 1:
+        if f >= len(action_mask):
             return
 
         if scene_frame is None:

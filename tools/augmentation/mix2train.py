@@ -147,14 +147,6 @@ def main(dump_path):
                 / f'{scene_stem.replace("-", "")}-{action_stem.replace("-", "")}'
             ).with_suffix(".mp4")
 
-            if not mask_path.exists():
-                bar.update(1)
-                continue
-
-            if out_path.exists() and mmcv.VideoReader(str(out_path)).frame_cnt > 0:
-                bar.update(1)
-                continue
-
             if SCENE_SELECTION in ("iou-v", "bao-v"):
                 action_label_idx = label2idx[action_label]
                 videos_selected_label = np.where(
@@ -165,6 +157,14 @@ def main(dump_path):
                 )
             elif SCENE_SELECTION in ("iou-m", "bao-m"):
                 eligible = np.setdiff1d(eligible, [action_id], assume_unique=True)
+
+            if not mask_path.exists():
+                bar.update(1)
+                continue
+
+            if out_path.exists() and mmcv.VideoReader(str(out_path)).frame_cnt > 0:
+                bar.update(1)
+                continue
 
             out_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -24,12 +24,12 @@ def main():
     N_VIDEOS = conf.datasets[DATASET].n_videos
     DETECTOR = conf.active.DETECTOR
     DET_CONFIDENCE = conf.detect[DETECTOR].confidence
-    TEMPORAL_MORPHOLOGY_ENABLED = conf.cutmix.temporal_morphology.enabled
+    TEMPORAL_MORPHOLOGY_ENABLED = conf.cutmix.morphology.temporal.enabled
     KERNEL_SIZE = conf.cutmix.soft_edge.kernel_size
     MASK_DIR = ROOT / "data" / DATASET / DETECTOR / str(DET_CONFIDENCE) / "detect/mask"
 
     if TEMPORAL_MORPHOLOGY_ENABLED:
-        TEMPORAL_MORPHOLOGY_OP = conf.cutmix.temporal_morphology.op
+        TEMPORAL_MORPHOLOGY_OP = conf.cutmix.morphology.temporal.op
         MASK_DIR = add_suffix(MASK_DIR, "-" + TEMPORAL_MORPHOLOGY_OP)
 
     OUT_DIR = add_suffix(MASK_DIR, "-soft")
