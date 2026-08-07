@@ -1,6 +1,6 @@
-# Action-Aligned Video Pairing
+# Action-Aligned Video Pairing for Video Augmentation
 
-Official implementation of the paper **"Action-Aligned Video Pairing for Video Augmentation"**, by Randy Cahya Wihandika, Israel Mendonça, and Masayoshi Aritsugi, presented at the IEEE Region 10 Conference 2025 (TENCON 2025).
+Official implementation of the paper, by Randy Cahya Wihandika, Israel Mendonça, and Masayoshi Aritsugi, presented at the IEEE Region 10 Conference 2025 (TENCON 2025).
 
 📄 Paper: [ieeexplore.ieee.org/document/11375402](https://ieeexplore.ieee.org/document/11375402)
 
@@ -29,19 +29,6 @@ Supported datasets: UCF101, HMDB51, Kinetics100.
 | `E2FGVI/`             | Submodule — flow-guided video inpainting.                                        |
 | `python_video/`, `assertpy/` | Submodules with shared helper utilities used across the tools.            |
 | `config.py`, `settings.json` | Dynaconf-based configuration for datasets, detector, and augmentation settings. |
-
-## Citation
-
-If you use this code or method, please cite:
-
-```bibtex
-@inproceedings{wihandika2025actionaligned,
-  title     = {Action-Aligned Video Pairing for Video Augmentation},
-  author    = {Wihandika, Randy Cahya and Mendon\c{c}a, Israel and Aritsugi, Masayoshi},
-  booktitle = {IEEE Region 10 Conference (TENCON 2025)},
-  year      = {2025}
-}
-```
 
 ## 1. Preparation
 
@@ -240,4 +227,17 @@ gdown -O checkpoints/ <download-key>
 
 ```shell
 python3 mmaction/tools/test.py <config-path> <checkpoint-path>
+```
+
+## Citation
+
+If you use this code or method, please cite:
+
+```bibtex
+@inproceedings{wihandika2025actionaligned,
+  title     = {Action-Aligned Video Pairing for Video Augmentation},
+  author    = {Wihandika, Randy Cahya and Mendon\c{c}a, Israel and Aritsugi, Masayoshi},
+  booktitle = {IEEE Region 10 Conference (TENCON 2025)},
+  year      = {2025}
+}
 ```
