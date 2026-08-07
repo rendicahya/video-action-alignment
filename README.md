@@ -1,5 +1,48 @@
 # Action-Aligned Video Pairing
 
+Official implementation of the paper **"Action-Aligned Video Pairing for Video Augmentation"**, by Randy Cahya Wihandika, Israel Mendonça, and Masayoshi Aritsugi, presented at the IEEE Region 10 Conference 2025 (TENCON 2025).
+
+📄 Paper: [ieeexplore.ieee.org/document/11375402](https://ieeexplore.ieee.org/document/11375402)
+
+## Overview
+
+This repository implements a background-aware video augmentation pipeline for action recognition:
+
+1. **Actor detection** — detects the actor(s) in each frame with YOLOv8 and produces a per-frame foreground mask (`yolov8/detect.py`).
+2. **Similarity matching** — computes IoU/BAO similarity between actor masks and candidate scene videos to find well-aligned action–scene pairings (`tools/mask/`).
+3. **Augmentation** — cuts the actor out of the source video and composites it onto the selected scene ("cutmix"-style mixing), with optional temporal/spatial morphology and soft-edge blending (`tools/augmentation/`).
+4. **Training/evaluation** — trains and evaluates action recognition models on the resulting augmented dataset via the MMAction2 submodule.
+
+Supported datasets: UCF101, HMDB51, Kinetics100.
+
+## Repository structure
+
+| Path                 | Description                                                                    |
+|-----------------------|----------------------------------------------------------------------------------|
+| `tools/data/`         | Dataset preparation: class index, train/val split, file listing.                 |
+| `tools/mask/`         | Actor mask utilities: IoU/BAO similarity matrix, temporal morphology, soft edges, mask ratio/visualization. |
+| `tools/augmentation/` | Cutmix/videomix augmentation, scene generation, random-corruption baseline.      |
+| `tools/analysis/`     | Training log parsing, mask ratio analysis.                                       |
+| `tools/misc/`         | Helper scripts (Telegram notifications, GIF export, command checks).             |
+| `yolov8/`             | Actor detection entry point.                                                     |
+| `mmaction2/`          | Submodule — training/evaluation framework, holds configs and checkpoints.        |
+| `E2FGVI/`             | Submodule — flow-guided video inpainting.                                        |
+| `python_video/`, `assertpy/` | Submodules with shared helper utilities used across the tools.            |
+| `config.py`, `settings.json` | Dynaconf-based configuration for datasets, detector, and augmentation settings. |
+
+## Citation
+
+If you use this code or method, please cite:
+
+```bibtex
+@inproceedings{wihandika2025actionaligned,
+  title     = {Action-Aligned Video Pairing for Video Augmentation},
+  author    = {Wihandika, Randy Cahya and Mendon\c{c}a, Israel and Aritsugi, Masayoshi},
+  booktitle = {IEEE Region 10 Conference (TENCON 2025)},
+  year      = {2025}
+}
+```
+
 ## 1. Preparation
 
 1. Clone this repository.
