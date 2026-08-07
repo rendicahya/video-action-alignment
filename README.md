@@ -189,11 +189,9 @@ intercutmix/data/hmdb51/
 
 ### c. Kinetics100
 
-1. Download videos.
+Kinetics100 here is a custom 100-class, 9,999-video subset curated for this project — it is not an official/public benchmark, so there is no download script or public link for it. To reproduce it, sample 100 classes and ~100 videos/class from the [official Kinetics dataset](https://github.com/cvdfoundation/kinetics-dataset), or contact the authors for the exact video list used in the paper.
 
-```shell
-wget https://some-google-drive-url/file
-```
+1. Place the videos under `data/kinetics100/videos/<class_name>/`.
 
 2. Verify the number of videos. Expected: 9,999.
 
